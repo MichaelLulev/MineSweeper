@@ -1,16 +1,21 @@
 'use strict'
 
+const HINT_TIMOUT = 1000
+
 const CLS_MINE_BOARD = 'mine-board'
 const CLS_CELL = 'mine-board-cell'
 const CLS_MINE = 'mine-board-cell-mine'
 const CLS_EMPTY = 'mine-board-cell-empty'
 const CLS_HIDDEN = 'mine-board-cell-hidden'
+const CLS_HINT = 'mine-board-cell-hint'
 const CLS_FIRST_CELL = 'mine-board-cell-first'
 const CLS_MINE_CHEAT = 'mine-board-cell-cheat-mine'
 
 const CLS_GAME_OVER_MODAL = 'game-over-modal'
 const CLS_GAME_OVER_MODAL_MESSAGE = 'game-over-modal-message'
+const CLS_NORMAL_MODE_MESSAGE = 'normal-mode-message'
 const CLS_CHEAT_MODE_MESSAGE = 'cheat-mode-message'
+const CLS_HINT_MODE_MESSAGE = 'hint-mode-message'
 
 const IMG_FLAG = '🚩'
 const IMG_BOMB = '💣'
@@ -48,22 +53,26 @@ var gMineBoard
 var gLevel
 var gNumLives
 var gIsSafe
+var gIsHintMode
+var gHintTimeoutId
 
-function onInit(levelName, isCheatMode) {
-    if (isCheatMode !== undefined) gIsCheatMode = isCheatMode
-    else if (gIsCheatMode === undefined) gIsCheatMode = false
+function onInit(levelName) {
+    if (gIsCheatMode === undefined) gIsCheatMode = false
     if (levelName !== undefined) gLevel = gLevels[levelName]
     else if (gLevel === undefined) gLevel = gLevels['medium']
     gIsGameOver = false
     gNumLives = gLevel.numLives
-    renderLives(gNumLives)
-    setSmiley(IMG_SMILEY_NORAML)
     gIsSafe = true
+    gIsHintMode = false
+    clearTimeout(gHintTimeoutId)
+    gHintTimeoutId = 0
     gMineBoard = createMat(gLevel.numRows, gLevel.numCols, createBoardCell, true)
     // console.log(gMineBoard)
     document.addEventListener('contextmenu', ev => ev.preventDefault())
     toggleGameOverModal(false, false)
     renderMineBoard()
+    renderLives(gNumLives)
+    setSmiley(IMG_SMILEY_NORAML)
 }
 
 function setSmiley(img) {
@@ -71,16 +80,29 @@ function setSmiley(img) {
     elButtonRestart.innerText = img
 }
 
-function renderLives(numLives) {
+function renderLives() {
     const elNumLives = document.querySelector('.num-lives')
     elNumLives.innerText = gNumLives
 }
 
+function renderHelpMessage() {
+    const elNormalModemessage = document.querySelector('.' + CLS_NORMAL_MODE_MESSAGE)
+    const elCheatModemessage = document.querySelector('.' + CLS_CHEAT_MODE_MESSAGE)
+    const elHintModemessage = document.querySelector('.' + CLS_HINT_MODE_MESSAGE)
+    elNormalModemessage.hidden = gIsCheatMode || gIsHintMode
+    elCheatModemessage.hidden = ! gIsCheatMode
+    elHintModemessage.hidden = ! gIsHintMode
+}
+
 function onToggleCheatMode() {
     gIsCheatMode = ! gIsCheatMode
-    var elCheatModeMessage = document.querySelector('.' + CLS_CHEAT_MODE_MESSAGE)
-    elCheatModeMessage.hidden = ! elCheatModeMessage.hidden
+    renderHelpMessage()
     renderMineBoard()
+}
+
+function onToggleHintMode() {
+    gIsHintMode = ! gIsHintMode
+    renderHelpMessage()
 }
 
 function createBoardCell(row, col) {
@@ -89,6 +111,7 @@ function createBoardCell(row, col) {
         isMine: false,
         isExploded: false,
         isHidden: true,
+        isHint: false,
         isFirst: false,
         isFlagged: false,
         numNeighbouringMines: -1,
@@ -101,6 +124,10 @@ function createBoardCell(row, col) {
 function onCellLeftClick(row, col) {
     if (gIsGameOver) return
     const clickedCell = gMineBoard[row][col]
+    if (gIsHintMode) {
+        giveHint(clickedCell)
+        return
+    }
     if (clickedCell.isFlagged) return
     if (gIsSafe) {
         clickedCell.isFirst = true
@@ -142,6 +169,19 @@ function createRandomMines(num) {
         var currCell = randomEmptyCells[i]
         currCell.isMine = true
     }
+}
+
+function giveHint(cell) {
+    onToggleHintMode()
+    const hintCells = getAllNeighbouringCells(gMineBoard, cell.row, cell.col)
+    hintCells.push(cell)
+    forAllElements(hintCells, cell => cell.isHint = true)
+    renderMineBoard()
+    clearTimeout(gHintTimeoutId)
+    gHintTimeoutId = setTimeout(() => {
+        forAllCells(gMineBoard, cell => cell.isHint = false)
+        renderMineBoard()
+    }, HINT_TIMOUT)
 }
 
 function initNumNeighbouringMines() {
@@ -226,7 +266,7 @@ function renderMineBoard() {
             var currCell = gMineBoard[row][col]
             var clsCellType = currCell.isMine ? CLS_MINE : CLS_EMPTY
             var cellContent = IMG_EMPTY
-            if (currCell.isHidden) {
+            if (currCell.isHidden && ! currCell.isHint) {
                 clsCellType = CLS_HIDDEN
                 if (currCell.isFlagged) cellContent = IMG_FLAG
             } else if (currCell.isMine) {
@@ -234,6 +274,7 @@ function renderMineBoard() {
                 else cellContent = IMG_BOMB
             } else if (0 < currCell.numNeighbouringMines) cellContent = currCell.numNeighbouringMines
             else if (currCell.isFirst) clsCellType += ' ' + CLS_FIRST_CELL
+            if (currCell.isHint && currCell.isHidden) clsCellType += ' ' + CLS_HINT
             if (gIsCheatMode && currCell.isMine) clsCellType += ' ' + CLS_MINE_CHEAT
             htmlStr += `\t<td class="${CLS_CELL} ${clsCellType}"
             onclick="onCellLeftClick(${row}, ${col})"

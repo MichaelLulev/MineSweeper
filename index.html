@@ -27,9 +27,14 @@
         </tbody>    
     </table>    
     
-    <div class="cheat-mode">
+    <div class="help-modes">
         <button class="cheat-mode-button" onclick="onToggleCheatMode()">Toggle Cheat Mode</button>
-        <h2 class="cheat-mode-message" hidden>Cheat Mode</h2>
+        <button class="hint-mode-button" onclick="onToggleHintMode()">Toggle Hint Mode</button>
+        <h2 class="help-mode-message">
+            <span class="normal-mode-message">Normal Mode</span>
+            <span class="cheat-mode-message" hidden>&lt; Cheat Mode &gt;</span>
+            <span class="hint-mode-message" hidden>&lt; Hint Mode &gt;</span>
+        </h2>
     </div>
 
     <div class="game-over-modal" hidden>

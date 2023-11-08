@@ -39,14 +39,14 @@ table.mine-board tbody {
     background-color: lightslategray;
 }
 
+.mine-board-cell-hint {
+    outline: 2px goldenrod solid;
+}
+
 .mine-board-cell-first {
     background-color: lightsalmon;
 }
 
 .mine-board-cell-cheat-mine {
     outline: 2px red solid;
-}
-
-.cheat-mode-message {
-    color: red;
 }
