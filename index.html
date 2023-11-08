@@ -9,11 +9,21 @@
 <body onload="onInit()">
     <h1>Mine Sweeper</h1>
 
+    <div class="cheat-mode">
+        <button class="cheat-mode-button" onclick="onToggleCheatMode()">Toggle Cheat Mode</button>
+        <h2 class="cheat-mode-message" hidden>Cheat Mode</h2>
+    </div>
+
     <table class="mine-board">
-        <tbody class="mine-board">
+        <tbody>
             <!-- Filled Dynamically -->
-        </tbody>
-    </table>
+        </tbody>    
+    </table>    
+
+    <div class="game-over-modal" hidden>
+        <h2 class="game-over-modal-message"></h2>
+        <button class="restart" onclick="onInit()">Restart Game</button>
+    </div>
 
     <script src="js/utils.js"></script>
     <script src="js/game.js"></script>

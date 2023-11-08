@@ -10,16 +10,34 @@ const CLS_MINE = 'mine-board-cell-mine'
 const CLS_EMPTY = 'mine-board-cell-empty'
 const CLS_HIDDEN = 'mine-board-cell-hidden'
 const CLS_FIRST_CELL = 'mine-board-cell-first'
+const CLS_MINE_CHEAT = 'mine-board-cell-cheat-mine'
 
+const CLS_GAME_OVER_MODAL = 'game-over-modal'
+const CLS_GAME_OVER_MODAL_MESSAGE = 'game-over-modal-message'
+const CLS_CHEAT_MODE_MESSAGE = 'cheat-mode-message'
+
+const IMG_FLAG = '🚩'
+const IMG_BOMB = '💣'
+const IMG_EMPTY = ' '
+
+
+var gIsCheatMode = false
 var gMineBoard
 var gIsSafe
 
-
 function onInit() {
-    document.addEventListener('contextmenu', ev => ev.preventDefault())
     gIsSafe = true
     gMineBoard = createMat(NUM_ROWS, NUM_ROWS, createBoardCell, true)
-    console.log(gMineBoard)
+    // console.log(gMineBoard)
+    document.addEventListener('contextmenu', ev => ev.preventDefault())
+    toggleGameOverModal(false, false)
+    renderMineBoard()
+}
+
+function onToggleCheatMode() {
+    gIsCheatMode = ! gIsCheatMode
+    var elCheatModeMessage = document.querySelector('.' + CLS_CHEAT_MODE_MESSAGE)
+    elCheatModeMessage.hidden = ! elCheatModeMessage.hidden
     renderMineBoard()
 }
 
@@ -46,14 +64,18 @@ function onCellLeftClick(row, col) {
         gIsSafe = false
         initNumNeighbouringMines()
     }
-    if (clickedCell.isMine) gameOver()
-    else revealCells(clickedCell)
+    if (clickedCell.isMine) gameOver(false)
+    else {
+        revealCells(clickedCell)
+        if (checkVictory()) gameOver(true)
+    }
     renderMineBoard()
 }
 
 function onCellRightClick(row, col) {
     const currCell = gMineBoard[row][col]
     if (currCell.isHidden) currCell.isFlagged = ! currCell.isFlagged
+    if (checkVictory()) gameOver(true)
     renderMineBoard()
 }
 
@@ -106,8 +128,30 @@ function revealAllCells() {
     forAllCells(gMineBoard, cell => cell.isHidden = false)
 }
 
-function gameOver() {
+function gameOver(isVictory) {
     revealAllCells()
+    toggleGameOverModal(true, isVictory)
+}
+
+function checkVictory() {
+    var isVictory = true
+    forAllCells(gMineBoard, cell => {
+        if (cell.isFlagged && ! cell.isMine ||
+            cell.isHidden && ! cell.isFlagged) isVictory = false
+    })
+    return isVictory
+}
+
+function toggleGameOverModal(isShow, isVictory) {
+    const elGameOverMessage = document.querySelector('.' + CLS_GAME_OVER_MODAL_MESSAGE)
+    const elGameOver = document.querySelector('.' + CLS_GAME_OVER_MODAL)
+    if (isShow) {
+        elGameOverMessage.innerText = isVictory ? 'You Win!' : 'Game Over!' 
+        elGameOver.hidden = false
+    } else {
+        elGameOverMessage.innerText = ''
+        elGameOver.hidden = true
+    }
 }
 
 function getEmptyCells() {
@@ -127,13 +171,14 @@ function renderMineBoard() {
         for (var col = 0; col < NUM_COLS; col++) {
             var currCell = gMineBoard[row][col]
             var clsCellType = currCell.isMine ? CLS_MINE : CLS_EMPTY
-            var cellContent = ''
+            var cellContent = IMG_EMPTY
             if (currCell.isHidden) {
                 clsCellType = CLS_HIDDEN
-                if (currCell.isFlagged) cellContent = '🚩'
-            } else if (currCell.isMine) cellContent = '💣'
+                if (currCell.isFlagged) cellContent = IMG_FLAG
+            } else if (currCell.isMine) cellContent = IMG_BOMB
             else if (0 < currCell.numNeighbouringMines) cellContent = currCell.numNeighbouringMines
             else if (currCell.isFirst) clsCellType += ' ' + CLS_FIRST_CELL
+            if (gIsCheatMode && currCell.isMine) clsCellType += ' ' + CLS_MINE_CHEAT
             htmlStr += `\t<td class="${CLS_CELL} ${clsCellType}"
             onclick="onCellLeftClick(${row}, ${col})"
             oncontextmenu="onCellRightClick(${row}, ${col})">

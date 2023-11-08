@@ -5,12 +5,13 @@
 }
 
 body {
+    box-sizing: border-box;
     user-select: none;
     text-align: center;
 }
 
 table.mine-board {
-    margin: 0 auto;
+    margin: 20px auto;
 }
 
 table.mine-board tbody {
@@ -28,4 +29,12 @@ table.mine-board tbody {
 
 .mine-board-cell-first {
     background-color: lightsalmon;
+}
+
+.mine-board-cell-cheat-mine {
+    outline: 2px red solid;
+}
+
+.cheat-mode-message {
+    color: red;
 }
