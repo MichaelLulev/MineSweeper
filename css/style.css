@@ -1,0 +1,31 @@
+:root {
+    --num-board-rows: 16;
+    --cell-width: 35px;
+    --cell-height: 35px;
+}
+
+body {
+    user-select: none;
+    text-align: center;
+}
+
+table.mine-board {
+    margin: 0 auto;
+}
+
+table.mine-board tbody {
+    background-color: lightskyblue;
+}
+
+.mine-board-cell {
+    width: var(--cell-width);
+    height: var(--cell-height);
+}
+
+.mine-board-cell-hidden {
+    background-color: lightslategray;
+}
+
+.mine-board-cell-first {
+    background-color: lightsalmon;
+}
