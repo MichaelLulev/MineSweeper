@@ -10,6 +10,18 @@ body {
     text-align: center;
 }
 
+div {
+    margin: 20px auto;
+}
+
+button {
+    margin: 0 2px;
+}
+
+div.levels button {
+    width: 95px;
+}
+
 table.mine-board {
     margin: 20px auto;
 }

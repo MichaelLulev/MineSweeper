@@ -1,9 +1,5 @@
 'use strict'
 
-const NUM_ROWS = 4
-const NUM_COLS = 4
-const NUM_MINES = 4
-
 const CLS_MINE_BOARD = 'mine-board'
 const CLS_CELL = 'mine-board-cell'
 const CLS_MINE = 'mine-board-cell-mine'
@@ -18,20 +14,66 @@ const CLS_CHEAT_MODE_MESSAGE = 'cheat-mode-message'
 
 const IMG_FLAG = '🚩'
 const IMG_BOMB = '💣'
+const IMG_EXPLOTION = '💥'
 const IMG_EMPTY = ' '
+const IMG_SMILEY_NORAML = '😀'
+const IMG_SMILEY_SAD = '🤯'
+const IMG_SMILEY_HAPPY = '😎'
 
+const gLevels = {
+    beginner: {
+        numRows: 4,
+        numCols: 4,
+        numMines: 2,
+        numLives: 3,
+    },
+    medium: {
+        numRows: 8,
+        numCols: 8,
+        numMines: 14,
+        numLives: 3,
+    },
+    expert: {
+        numRows: 12,
+        numCols: 12,
+        numMines: 32,
+        numLives: 3,
+    },
+}
 
-var gIsCheatMode = false
+var gIsCheatMode
+
+var gIsGameOver
 var gMineBoard
+var gLevel
+var gNumLives
 var gIsSafe
 
-function onInit() {
+function onInit(levelName, isCheatMode) {
+    if (isCheatMode !== undefined) gIsCheatMode = isCheatMode
+    else if (gIsCheatMode === undefined) gIsCheatMode = false
+    if (levelName !== undefined) gLevel = gLevels[levelName]
+    else if (gLevel === undefined) gLevel = gLevels['medium']
+    gIsGameOver = false
+    gNumLives = gLevel.numLives
+    renderLives(gNumLives)
+    setSmiley(IMG_SMILEY_NORAML)
     gIsSafe = true
-    gMineBoard = createMat(NUM_ROWS, NUM_ROWS, createBoardCell, true)
+    gMineBoard = createMat(gLevel.numRows, gLevel.numCols, createBoardCell, true)
     // console.log(gMineBoard)
     document.addEventListener('contextmenu', ev => ev.preventDefault())
     toggleGameOverModal(false, false)
     renderMineBoard()
+}
+
+function setSmiley(img) {
+    const elButtonRestart = document.querySelector('button.restart')
+    elButtonRestart.innerText = img
+}
+
+function renderLives(numLives) {
+    const elNumLives = document.querySelector('.num-lives')
+    elNumLives.innerText = gNumLives
 }
 
 function onToggleCheatMode() {
@@ -45,6 +87,7 @@ function createBoardCell(row, col) {
     const cell = {
         isSafe: false,
         isMine: false,
+        isExploded: false,
         isHidden: true,
         isFirst: false,
         isFlagged: false,
@@ -56,6 +99,7 @@ function createBoardCell(row, col) {
 }
 
 function onCellLeftClick(row, col) {
+    if (gIsGameOver) return
     const clickedCell = gMineBoard[row][col]
     if (clickedCell.isFlagged) return
     if (gIsSafe) {
@@ -64,15 +108,17 @@ function onCellLeftClick(row, col) {
         gIsSafe = false
         initNumNeighbouringMines()
     }
-    if (clickedCell.isMine) gameOver(false)
-    else {
-        revealCells(clickedCell)
-        if (checkVictory()) gameOver(true)
-    }
+    if (clickedCell.isMine && clickedCell.isHidden) {
+        clickedCell.isHidden = false
+        clickedCell.isExploded = true
+        gameOver(false)
+    } else revealCells(clickedCell)
+    if (! gIsGameOver && checkVictory()) gameOver(true)
     renderMineBoard()
 }
 
 function onCellRightClick(row, col) {
+    if (gIsGameOver) return
     const currCell = gMineBoard[row][col]
     if (currCell.isHidden) currCell.isFlagged = ! currCell.isFlagged
     if (checkVictory()) gameOver(true)
@@ -83,7 +129,7 @@ function createSafeMines(firstCell) {
     const neighbouringCells = getAllNeighbouringCells(gMineBoard, firstCell.row, firstCell.col)
     forAllElements(neighbouringCells, cell => cell.isSafe = true)
     firstCell.isSafe = true
-    createRandomMines(NUM_MINES)
+    createRandomMines(gLevel.numMines)
     forAllElements(neighbouringCells, cell => cell.isSafe = false)
     firstCell.isSafe = false
 }
@@ -129,6 +175,14 @@ function revealAllCells() {
 }
 
 function gameOver(isVictory) {
+    if (! isVictory && 0 < gNumLives) {
+        gNumLives--
+        renderLives(gNumLives)
+        return
+    }
+    gIsGameOver = true
+    if (isVictory) setSmiley(IMG_SMILEY_HAPPY)
+    else setSmiley(IMG_SMILEY_SAD)
     revealAllCells()
     toggleGameOverModal(true, isVictory)
 }
@@ -166,17 +220,19 @@ function getEmptyCells() {
 
 function renderMineBoard() {
     var htmlStr = ''
-    for (var row = 0; row < NUM_ROWS; row++) {
+    for (var row = 0; row < gLevel.numRows; row++) {
         htmlStr += '<tr>\n'
-        for (var col = 0; col < NUM_COLS; col++) {
+        for (var col = 0; col < gLevel.numCols; col++) {
             var currCell = gMineBoard[row][col]
             var clsCellType = currCell.isMine ? CLS_MINE : CLS_EMPTY
             var cellContent = IMG_EMPTY
             if (currCell.isHidden) {
                 clsCellType = CLS_HIDDEN
                 if (currCell.isFlagged) cellContent = IMG_FLAG
-            } else if (currCell.isMine) cellContent = IMG_BOMB
-            else if (0 < currCell.numNeighbouringMines) cellContent = currCell.numNeighbouringMines
+            } else if (currCell.isMine) {
+                if (currCell.isExploded) cellContent = IMG_EXPLOTION
+                else cellContent = IMG_BOMB
+            } else if (0 < currCell.numNeighbouringMines) cellContent = currCell.numNeighbouringMines
             else if (currCell.isFirst) clsCellType += ' ' + CLS_FIRST_CELL
             if (gIsCheatMode && currCell.isMine) clsCellType += ' ' + CLS_MINE_CHEAT
             htmlStr += `\t<td class="${CLS_CELL} ${clsCellType}"

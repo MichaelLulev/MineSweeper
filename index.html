@@ -9,21 +9,34 @@
 <body onload="onInit()">
     <h1>Mine Sweeper</h1>
 
-    <div class="cheat-mode">
-        <button class="cheat-mode-button" onclick="onToggleCheatMode()">Toggle Cheat Mode</button>
-        <h2 class="cheat-mode-message" hidden>Cheat Mode</h2>
+    <button class="restart" onclick="onInit()"></button>
+    
+    <div class="levels">
+        <button onclick="onInit('beginner')">Beginner</button>
+        <button onclick="onInit('medium')">Medium</button>
+        <button onclick="onInit('expert')">Expert</button>
     </div>
 
+    <div class="stats">
+        <h2>Lives: <span class="num-lives"></span></h2>
+    </div>
+    
     <table class="mine-board">
         <tbody>
             <!-- Filled Dynamically -->
         </tbody>    
     </table>    
+    
+    <div class="cheat-mode">
+        <button class="cheat-mode-button" onclick="onToggleCheatMode()">Toggle Cheat Mode</button>
+        <h2 class="cheat-mode-message" hidden>Cheat Mode</h2>
+    </div>
 
     <div class="game-over-modal" hidden>
         <h2 class="game-over-modal-message"></h2>
-        <button class="restart" onclick="onInit()">Restart Game</button>
     </div>
+
+    <footer>Created by © Michael Lulev</footer>
 
     <script src="js/utils.js"></script>
     <script src="js/game.js"></script>
