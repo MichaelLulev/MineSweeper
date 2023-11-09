@@ -1,8 +1,10 @@
 'use strict'
 
-const HINT_TIMOUT = 1000
 const SMILEY_TIMOUT = 1000
+const HINT_TIMOUT = 1000
+const MARK_TIMOUT = 2000
 const REVEAL_CELL_TIMEOUT = 25
+const TIMER_UPDATE_INTERVAL = 47
 
 const CLS_GAME_BOARD_CELL = 'game-board-cell'
 const CLS_MINE_BOARD_BODY = 'mine-board-body'
@@ -15,16 +17,22 @@ const CLS_COVER_BOARD_CELL_HINT = 'cover-board-cell-hint'
 const CLS_COVER_BOARD_CELL_CHEAT_MINE = 'cover-board-cell-cheat-mine'
 const CLS_COVER_BOARD_CELL_UNCOVERED = 'cover-board-cell-uncovered'
 
+const CLS_HELP_MODE_MESSAGE = 'help-mode-message'
+const NORMAL_MODE_MESSAGE = 'Normal Mode'
+const CHEAT_MODE_MESSAGE = ' < Cheat Mode > '
+const MEGA_HINT_MODE_MESSAGE = ' < Mega Hint Mode (not implemented) > '
+const HINT_MODE_MESSAGE = ' < Hint Mode > '
+
 const CLS_GAME_OVER_MODAL = 'game-over-modal'
 const CLS_GAME_OVER_MODAL_MESSAGE = 'game-over-modal-message'
-const CLS_NORMAL_MODE_MESSAGE = 'normal-mode-message'
-const CLS_CHEAT_MODE_MESSAGE = 'cheat-mode-message'
-const CLS_HINT_MODE_MESSAGE = 'hint-mode-message'
+const CLS_HIGH_SCORES_LIST = 'high-scores-list'
 
 const IMG_FLAG = '🚩'
 const IMG_MINE = '💣'
 const IMG_EXPLOTION = '💥'
 const IMG_EMPTY = ' '
+const IMG_MARK = '✌'
+const IMG_MEGA_HINT_MARK = '👍'
 const IMG_SMILEY_NORAML = '😀'
 const IMG_SMILEY_SAD = '😖'
 const IMG_SMILEY_DEAD = '🤯'
@@ -51,34 +59,56 @@ const gLevels = {
     },
 }
 
+const isStorageAvailable = typeof Storage !== 'undefined'
+
 var gIsCheatMode
 
 var gIsGameOver
 var gMineBoard
 var gLevel
 var gNumLives
-var gIsSafe
+var gIsFirstClick
 var gIsHintMode
 var gHintTimeoutId
 var gSetSmileyTimoutId
+var gStartTime
+var gTimePlayed
+var gTimerIntervalId
+var gMarkTimoutId
+var gGameStateStack
+var gGameStateIdx
+var gIsMegaHintMode
+var gIsMegaHintStart
 
 function onInit(levelName) {
     if (gIsCheatMode === undefined) gIsCheatMode = false
     if (levelName !== undefined) gLevel = gLevels[levelName]
     else if (gLevel === undefined) gLevel = gLevels['medium']
+    gGameStateStack = []
+    gGameStateIdx = -1
     gIsGameOver = false
     gNumLives = gLevel.numLives
-    gIsSafe = true
+    gIsFirstClick = true
     gIsHintMode = false
+    gIsMegaHintMode = false
+    gIsMegaHintStart = false
     clearTimeout(gHintTimeoutId)
     clearTimeout(gSetSmileyTimoutId)
     gMineBoard = createMat(gLevel.numRows, gLevel.numCols, createBoardCell, true)
-    // console.log(gMineBoard)
+    clearInterval(gTimerIntervalId)
+    gTimePlayed = 0
+    renderTimer()
     document.addEventListener('contextmenu', ev => ev.preventDefault())
     toggleGameOverModal(false, false)
     renderMineBoard()
     renderLives(gNumLives)
+    renderHelpMessage()
     setSmiley(IMG_SMILEY_NORAML)
+}
+
+function renderTimer() {
+    const elTimer = document.querySelector('.timer')
+    elTimer.innerText = (gTimePlayed / 1000).toFixed(3)
 }
 
 function setSmiley(img) {
@@ -91,26 +121,72 @@ function renderLives() {
     elNumLives.innerText = gNumLives
 }
 
-function renderHelpMessage() {
-    const elNormalModemessage = document.querySelector('.' + CLS_NORMAL_MODE_MESSAGE)
-    const elCheatModemessage = document.querySelector('.' + CLS_CHEAT_MODE_MESSAGE)
-    const elHintModemessage = document.querySelector('.' + CLS_HINT_MODE_MESSAGE)
-    elNormalModemessage.hidden = gIsCheatMode || gIsHintMode
-    elCheatModemessage.hidden = ! gIsCheatMode
-    elHintModemessage.hidden = ! gIsHintMode
-}
-
-function onToggleCheatMode(isTurnOn) {
-    if (isTurnOn === undefined) gIsCheatMode = ! gIsCheatMode
-    else gIsCheatMode = isTurnOn
+function onToggleCheatMode(isState) {
+    if (isState === undefined) gIsCheatMode = ! gIsCheatMode
+    else gIsCheatMode = isState
     renderHelpMessage()
     renderUpdateMineBoard()
 }
 
-function onToggleHintMode(isTurnOn) {
-    if (isTurnOn === undefined) gIsHintMode = ! gIsHintMode
-    else gIsHintMode = isTurnOn
+function onToggleMegaHint(isState) {
+    if (isState === undefined) gIsMegaHintMode = ! gIsMegaHintMode
+    else gIsMegaHintMode = isState
+    if (gIsMegaHintMode) gIsHintMode = false
     renderHelpMessage()
+}
+
+function onToggleHintMode(isState) {
+    if (isState === undefined) gIsHintMode = ! gIsHintMode
+    else gIsHintMode = isState
+    if (gIsHintMode) gIsMegaHintMode = false
+    renderHelpMessage()
+}
+
+function renderHelpMessage() {
+    const elHelpModeMessage = document.querySelector('.' + CLS_HELP_MODE_MESSAGE)
+    if (! gIsCheatMode && ! gIsMegaHintMode && ! gIsHintMode) {
+        elHelpModeMessage.innerText = NORMAL_MODE_MESSAGE
+    } else {
+        elHelpModeMessage.innerText = ''
+        elHelpModeMessage.innerText += gIsCheatMode ? CHEAT_MODE_MESSAGE : ''
+        elHelpModeMessage.innerText += gIsMegaHintMode ? MEGA_HINT_MODE_MESSAGE : ''
+        elHelpModeMessage.innerText += gIsHintMode ? HINT_MODE_MESSAGE : ''
+    }
+}
+
+function onMarkSafeCell() {
+    const safeCells = getEmptyCells(cell => {
+        return cell.isHidden && ! cell.isMine && ! cell.isHint && ! cell.isMarked
+    })
+    const randomSafeCell = getRandomElements(safeCells, 1)[0]
+    if (randomSafeCell === undefined) return
+    randomSafeCell.isMarked = true;
+    renderUpdateCell(randomSafeCell)
+    gMarkTimoutId = setTimeout(() => {
+        randomSafeCell.isMarked = false
+        renderUpdateCell(randomSafeCell)
+    }, MARK_TIMOUT)
+}
+
+function onUndo() {
+    if (gGameStateIdx <= 0 || gIsGameOver) return
+    const prevGameState = gGameStateStack[--gGameStateIdx]
+    gMineBoard = JSON.parse(prevGameState)
+    renderUpdateMineBoard()
+}
+
+function onRedo() {
+    if (gGameStateStack.length - 1 <= gGameStateIdx || gIsGameOver) return
+    const nextGameState = gGameStateStack[++gGameStateIdx]
+    gMineBoard = JSON.parse(nextGameState)
+    renderUpdateMineBoard()
+}
+
+function pushGameState() {
+    if (gIsGameOver) return
+    gGameStateStack.splice(++gGameStateIdx)
+    const gameState = JSON.stringify(gMineBoard)
+    gGameStateStack.push(gameState)
 }
 
 function createBoardCell(row, col) {
@@ -122,6 +198,7 @@ function createBoardCell(row, col) {
         isHint: false,
         isFirst: false,
         isFlagged: false,
+        isMarked: false,
         numNeighbouringMines: -1,
         row,
         col,
@@ -136,12 +213,20 @@ function onCellLeftClick(row, col) {
         giveHint(clickedCell)
         return
     }
-    if (clickedCell.isFlagged) return
-    if (gIsSafe) {
+    if (clickedCell.isFlagged || ! clickedCell.isHidden) return
+    if (gIsFirstClick) {
         clickedCell.isFirst = true
         createSafeMines(clickedCell)
-        gIsSafe = false
+        gIsFirstClick = false
         initNumNeighbouringMines()
+        clearInterval(gTimerIntervalId)
+        gStartTime = Date.now()
+        gTimerIntervalId = setInterval(() => {
+            updateTimer()
+            renderTimer()
+        }, TIMER_UPDATE_INTERVAL);
+        renderUpdateMineBoard()
+        pushGameState()
     }
     if (clickedCell.isMine && clickedCell.isHidden) {
         clickedCell.isHidden = false
@@ -150,6 +235,11 @@ function onCellLeftClick(row, col) {
         renderUpdateCell(clickedCell)
     } else revealCells(clickedCell)
     if (! gIsGameOver && checkVictory()) gameOver(true)
+    if (! gIsFirstClick) pushGameState()
+}
+
+function updateTimer() {
+    gTimePlayed = Date.now() - gStartTime
 }
 
 function onCellRightClick(row, col) {
@@ -235,12 +325,48 @@ function gameOver(isVictory) {
         gSetSmileyTimoutId = setTimeout(setSmiley, SMILEY_TIMOUT, IMG_SMILEY_NORAML)
         return
     }
+    clearInterval(gTimerIntervalId)
+    updateTimer()
+    renderTimer()
     gIsGameOver = true
     clearTimeout(gSetSmileyTimoutId)
     if (isVictory) setSmiley(IMG_SMILEY_HAPPY)
-    else setSmiley(IMG_SMILEY_DEAD)
+    else {
+        setSmiley(IMG_SMILEY_DEAD)
+        forAllCells(gMineBoard, cell => {
+            if (cell.isMine) cell.isExploded = true
+        })
+    }
+    if (isStorageAvailable) {
+        const score = isVictory ? gTimePlayed : undefined
+        const highScores = updateHighScores(score)
+        renderHighScores(highScores)
+    }
     revealAllCells()
     toggleGameOverModal(true, isVictory)
+}
+
+function renderHighScores(highScores) {
+    var htmlStr = ''
+    forAllElements(highScores, score => {
+        htmlStr += `<li>${score.toFixed(3)} s</li>\n`
+    })
+    const elHighScoresList = document.querySelector('.' + CLS_HIGH_SCORES_LIST)
+    elHighScoresList.innerHTML = htmlStr
+}
+
+function updateHighScores(score, level) {
+    if (! level) level = gLevel
+    const highScoresKey = JSON.stringify(level)
+    const highScoresStr = localStorage[highScoresKey]
+    var highScores
+    if (! highScoresStr) highScores = []
+    else highScores = highScoresStr.split(',')
+    if (! isNaN(score)) highScores.push(score / 1000)
+    highScores = forAllElements(highScores, str => +str)
+    highScores.sort((x, y) => x - y)
+    localStorage[highScoresKey] = highScores
+    return highScores
 }
 
 function checkVictory() {
@@ -254,18 +380,22 @@ function checkVictory() {
 
 function toggleGameOverModal(isShow, isVictory) {
     const elGameOverMessage = document.querySelector('.' + CLS_GAME_OVER_MODAL_MESSAGE)
-    const elGameOver = document.querySelector('.' + CLS_GAME_OVER_MODAL)
+    const elGameOverModal = document.querySelector('.' + CLS_GAME_OVER_MODAL)
     if (isShow) {
         elGameOverMessage.innerText = isVictory ? 'You Win!' : 'Game Over!' 
-        elGameOver.hidden = false
+        elGameOverModal.hidden = false
+        elGameOverModal.style.opacity = 0
+        setTimeout(() => elGameOverModal.style.opacity = 1, 0)
+        
     } else {
         elGameOverMessage.innerText = ''
-        elGameOver.hidden = true
+        elGameOverModal.hidden = true
     }
 }
 
-function getEmptyCells() {
-    const emptyCellsCoords = getEmptyCoords(gMineBoard, cell => ! cell.isMine && ! cell.isSafe, 'row', 'col')
+function getEmptyCells(func) {
+    if (typeof func !== 'function') func = cell => ! cell.isMine && ! cell.isSafe
+    const emptyCellsCoords = getEmptyCoords(gMineBoard, func, 'row', 'col')
     const emptyCells = []
     for (var i = 0; i < emptyCellsCoords.length; i++) {
         var currCoords = emptyCellsCoords[i]
@@ -313,11 +443,13 @@ function renderUpdateMineBoard() {
 function renderUpdateCell(cell) {
     var elCoverCell = document.querySelector(`#${getCoverCellId(cell.row, cell.col)}`)
     var elMineCell = document.querySelector(`#${getMineCellId(cell.row, cell.col)}`)
-    if (cell.isFlagged) elCoverCell.innerHTML = IMG_FLAG
+    if (cell.isMarked) elCoverCell.innerHTML = IMG_MARK
+    else if (cell.isFlagged) elCoverCell.innerHTML = IMG_FLAG
     else elCoverCell.innerHTML = IMG_EMPTY
     if (cell.isHint) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_HINT)
     else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_HINT)
     if (! cell.isHidden) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_UNCOVERED)
+    else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_UNCOVERED)
     if (! cell.isHidden || cell.isHint) {
         if (cell.isFirst) elMineCell.classList.add(CLS_MINE_BOARD_CELL_FIRST)
         if (cell.isExploded) elMineCell.innerHTML = IMG_EXPLOTION

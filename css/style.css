@@ -19,9 +19,6 @@ div.levels button {
     width: 95px;
 }
 
-.game-board {
-}
-
 .cover-board {
     position:absolute;
     left: 50%;
@@ -65,4 +62,29 @@ div.levels button {
 
 .mine-board-cell-first {
     background-color: lightsalmon;
+}
+
+.game-over-modal {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-height: 80vh;
+    background-color: rgba(250, 235, 215, 0.85);
+    border-radius: 1em;
+    padding: 0em 3em;
+    opacity: 0;
+    transition: 2500ms;
+}
+
+.high-scores-list {
+    border: 1px black solid;
+    max-height: 20vh;
+    overflow-y: auto;
+    text-align: start;
+    list-style-position: outside;
+}
+
+li::marker {
+    font-weight: bold;
 }

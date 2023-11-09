@@ -7,50 +7,59 @@
     <link rel="stylesheet" href="css/style.css" />
 </head>
 <body onload="onInit()">
-    <h1>Mine Sweeper</h1>
+    <div class="game-body">
+        <h1 class="title">Mine Sweeper</h1>
 
-    <button class="restart" onclick="onInit()"></button>
-    
-    <div class="levels">
-        <button onclick="onInit('beginner')">Beginner</button>
-        <button onclick="onInit('medium')">Medium</button>
-        <button onclick="onInit('expert')">Expert</button>
-    </div>
-
-    <div class="stats">
-        <h2>Lives: <span class="num-lives"></span></h2>
-    </div>
-    
-    <div class="game-board">
-        <table class="cover-board">
-            <tbody class="cover-board-body">
-                <!-- Filled Dynamically -->
-            </tbody>    
-        </table>    
+        <button class="restart" onclick="onInit()"></button>
         
-        <table class="mine-board">
-            <tbody class="mine-board-body">
+        <div class="levels">
+            <button onclick="onInit('beginner')">Beginner</button>
+            <button onclick="onInit('medium')">Medium</button>
+            <button onclick="onInit('expert')">Expert</button>
+        </div>
+
+        <div class="stats">
+            <h2>Timer: <span class="timer"></span></h2>
+            <h2>Lives: <span class="num-lives"></span></h2>
+            <button class="undo" onclick="onUndo()">Undo</button>
+            <button class="redo" onclick="onRedo()">Redo</button>
+        </div>
+        
+        <div class="game-board">
+            <table class="cover-board">
+                <tbody class="cover-board-body">
+                    <!-- Filled Dynamically -->
+                </tbody>    
+            </table>    
+            
+            <table class="mine-board">
+                <tbody class="mine-board-body">
+                    <!-- Filled Dynamically -->
+                </tbody>    
+            </table>
+        </div>
+        
+        <div class="help-modes">
+            <button class="cheat-mode-button" onclick="onToggleCheatMode()">Toggle Cheat Mode</button>
+            <button class="mega-hint-button" onclick="onToggleMegaHint()">Toggle Mega Hint</button>
+            <button class="hint-mode-button" onclick="onToggleHintMode()">Toggle Hint Mode</button>
+            <button class="safe-cell-button" onclick="onMarkSafeCell()">Mark Safe Cell</button>
+            <h2 class="help-mode-message">
                 <!-- Filled Dynamically -->
-            </tbody>    
-        </table>
-    </div>
-    
-    <div class="help-modes">
-        <button class="cheat-mode-button" onclick="onToggleCheatMode()">Toggle Cheat Mode</button>
-        <button class="hint-mode-button" onclick="onToggleHintMode()">Toggle Hint Mode</button>
-        <h2 class="help-mode-message">
-            <span class="normal-mode-message">Normal Mode</span>
-            <span class="cheat-mode-message" hidden>&lt; Cheat Mode &gt;</span>
-            <span class="hint-mode-message" hidden>&lt; Hint Mode &gt;</span>
-        </h2>
-    </div>
+            </h2>
+        </div>
 
-    <div class="game-over-modal" hidden>
-        <h2 class="game-over-modal-message"></h2>
+        <div class="game-over-modal" hidden>
+            <h2 class="game-over-modal-message"></h2>
+            <button class="restart" onclick="onInit()">Restart</button>
+            <h3>High Scores</h3>
+            <ol class="high-scores-list">
+                <!-- Filled Dynamically -->
+            </ol>
+        </div>
+
+        <footer>Created by © Michael Lulev</footer>
     </div>
-
-    <footer>Created by © Michael Lulev</footer>
-
     <script src="js/utils.js"></script>
     <script src="js/game.js"></script>
 </body>
