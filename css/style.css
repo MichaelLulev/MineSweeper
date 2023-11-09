@@ -1,7 +1,4 @@
 :root {
-    --num-board-rows: 16;
-    --cell-width: 35px;
-    --cell-height: 35px;
 }
 
 body {
@@ -22,31 +19,50 @@ div.levels button {
     width: 95px;
 }
 
-table.mine-board {
-    margin: 20px auto;
+.game-board {
 }
 
-table.mine-board tbody {
-    background-color: lightskyblue;
+.cover-board {
+    position:absolute;
+    left: 50%;
+    transform: translate(-50%, 0%);
 }
 
-.mine-board-cell {
-    width: var(--cell-width);
-    height: var(--cell-height);
+.mine-board {
+    margin: 0 auto;
 }
 
-.mine-board-cell-hidden {
+.game-board-cell {
+    opacity: 1;
+    width: 35px;
+    min-width: 35px;
+    height: 35px;
+    min-height: 35px;
+    border-radius: 10px;
+    transition: 200ms;
+    /* border-radius: 5px; */
+}
+
+.cover-board-cell {
     background-color: lightslategray;
 }
 
-.mine-board-cell-hint {
-    outline: 2px goldenrod solid;
+.cover-board-cell-hint {
+    opacity: 0.3;
+}
+
+.cover-board-cell-cheat-mine {
+    outline: 2px red solid;
+}
+
+.cover-board-cell-uncovered {
+    opacity: 0;
+}
+
+.mine-board-cell {
+    background-color: lightskyblue;
 }
 
 .mine-board-cell-first {
     background-color: lightsalmon;
-}
-
-.mine-board-cell-cheat-mine {
-    outline: 2px red solid;
 }

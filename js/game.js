@@ -1,15 +1,19 @@
 'use strict'
 
 const HINT_TIMOUT = 1000
+const SMILEY_TIMOUT = 1000
+const REVEAL_CELL_TIMEOUT = 25
 
-const CLS_MINE_BOARD = 'mine-board'
-const CLS_CELL = 'mine-board-cell'
-const CLS_MINE = 'mine-board-cell-mine'
-const CLS_EMPTY = 'mine-board-cell-empty'
-const CLS_HIDDEN = 'mine-board-cell-hidden'
-const CLS_HINT = 'mine-board-cell-hint'
-const CLS_FIRST_CELL = 'mine-board-cell-first'
-const CLS_MINE_CHEAT = 'mine-board-cell-cheat-mine'
+const CLS_GAME_BOARD_CELL = 'game-board-cell'
+const CLS_MINE_BOARD_BODY = 'mine-board-body'
+const CLS_MINE_BOARD_CELL = 'mine-board-cell'
+const CLS_MINE_BOARD_CELL_FIRST = 'mine-board-cell-first'
+const CLS_MINE_BOARD_CELL_CHEAT_MINE = 'mine-board-cell-cheat-mine'
+const CLS_COVER_BOARD_BODY = 'cover-board-body'
+const CLS_COVER_BOARD_CELL = 'cover-board-cell'
+const CLS_COVER_BOARD_CELL_HINT = 'cover-board-cell-hint'
+const CLS_COVER_BOARD_CELL_CHEAT_MINE = 'cover-board-cell-cheat-mine'
+const CLS_COVER_BOARD_CELL_UNCOVERED = 'cover-board-cell-uncovered'
 
 const CLS_GAME_OVER_MODAL = 'game-over-modal'
 const CLS_GAME_OVER_MODAL_MESSAGE = 'game-over-modal-message'
@@ -18,11 +22,12 @@ const CLS_CHEAT_MODE_MESSAGE = 'cheat-mode-message'
 const CLS_HINT_MODE_MESSAGE = 'hint-mode-message'
 
 const IMG_FLAG = '🚩'
-const IMG_BOMB = '💣'
+const IMG_MINE = '💣'
 const IMG_EXPLOTION = '💥'
 const IMG_EMPTY = ' '
 const IMG_SMILEY_NORAML = '😀'
-const IMG_SMILEY_SAD = '🤯'
+const IMG_SMILEY_SAD = '😖'
+const IMG_SMILEY_DEAD = '🤯'
 const IMG_SMILEY_HAPPY = '😎'
 
 const gLevels = {
@@ -55,6 +60,7 @@ var gNumLives
 var gIsSafe
 var gIsHintMode
 var gHintTimeoutId
+var gSetSmileyTimoutId
 
 function onInit(levelName) {
     if (gIsCheatMode === undefined) gIsCheatMode = false
@@ -65,7 +71,7 @@ function onInit(levelName) {
     gIsSafe = true
     gIsHintMode = false
     clearTimeout(gHintTimeoutId)
-    gHintTimeoutId = 0
+    clearTimeout(gSetSmileyTimoutId)
     gMineBoard = createMat(gLevel.numRows, gLevel.numCols, createBoardCell, true)
     // console.log(gMineBoard)
     document.addEventListener('contextmenu', ev => ev.preventDefault())
@@ -94,14 +100,16 @@ function renderHelpMessage() {
     elHintModemessage.hidden = ! gIsHintMode
 }
 
-function onToggleCheatMode() {
-    gIsCheatMode = ! gIsCheatMode
+function onToggleCheatMode(isTurnOn) {
+    if (isTurnOn === undefined) gIsCheatMode = ! gIsCheatMode
+    else gIsCheatMode = isTurnOn
     renderHelpMessage()
-    renderMineBoard()
+    renderUpdateMineBoard()
 }
 
-function onToggleHintMode() {
-    gIsHintMode = ! gIsHintMode
+function onToggleHintMode(isTurnOn) {
+    if (isTurnOn === undefined) gIsHintMode = ! gIsHintMode
+    else gIsHintMode = isTurnOn
     renderHelpMessage()
 }
 
@@ -139,9 +147,9 @@ function onCellLeftClick(row, col) {
         clickedCell.isHidden = false
         clickedCell.isExploded = true
         gameOver(false)
+        renderUpdateCell(clickedCell)
     } else revealCells(clickedCell)
     if (! gIsGameOver && checkVictory()) gameOver(true)
-    renderMineBoard()
 }
 
 function onCellRightClick(row, col) {
@@ -149,7 +157,7 @@ function onCellRightClick(row, col) {
     const currCell = gMineBoard[row][col]
     if (currCell.isHidden) currCell.isFlagged = ! currCell.isFlagged
     if (checkVictory()) gameOver(true)
-    renderMineBoard()
+    renderUpdateMineBoard()
 }
 
 function createSafeMines(firstCell) {
@@ -164,7 +172,6 @@ function createSafeMines(firstCell) {
 function createRandomMines(num) {
     const emptyCells = getEmptyCells()
     const randomEmptyCells = getRandomElements(emptyCells, num)
-    // console.log(randomEmptyCells)
     for (var i = 0; i < randomEmptyCells.length; i++) {
         var currCell = randomEmptyCells[i]
         currCell.isMine = true
@@ -172,15 +179,15 @@ function createRandomMines(num) {
 }
 
 function giveHint(cell) {
-    onToggleHintMode()
+    onToggleHintMode(false)
     const hintCells = getAllNeighbouringCells(gMineBoard, cell.row, cell.col)
     hintCells.push(cell)
     forAllElements(hintCells, cell => cell.isHint = true)
-    renderMineBoard()
+    renderUpdateMineBoard()
     clearTimeout(gHintTimeoutId)
     gHintTimeoutId = setTimeout(() => {
         forAllCells(gMineBoard, cell => cell.isHint = false)
-        renderMineBoard()
+        renderUpdateMineBoard()
     }, HINT_TIMOUT)
 }
 
@@ -196,33 +203,42 @@ function countNeighbouringMines(row, col) {
     return countNeighbours(gMineBoard, row, col, cell => cell.isMine, true)
 }
 
-function revealCells(cell) {
+function revealCells(cell, depth=0) {
     if (! cell.isHidden || cell.isFlagged) return
     if (0 < cell.numNeighbouringMines) {
         cell.isHidden = false
+        setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
         return
     }
     cell.isHidden = false
+    setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
     const allNeighbouringCells = getAllNeighbouringCells(gMineBoard, cell.row, cell.col)
     for (var i = 0; i < allNeighbouringCells.length; i++) {
         var currCell = allNeighbouringCells[i]
-        revealCells(currCell)
+        revealCells(currCell, depth + 1)
     }
 }
 
 function revealAllCells() {
-    forAllCells(gMineBoard, cell => cell.isHidden = false)
+    forAllCells(gMineBoard, cell => {
+        cell.isHidden = false
+        setTimeout(renderUpdateCell, (cell.row + cell.col) * REVEAL_CELL_TIMEOUT, cell)
+    })
 }
 
 function gameOver(isVictory) {
     if (! isVictory && 0 < gNumLives) {
         gNumLives--
         renderLives(gNumLives)
+        clearTimeout(gSetSmileyTimoutId)
+        setSmiley(IMG_SMILEY_SAD)
+        gSetSmileyTimoutId = setTimeout(setSmiley, SMILEY_TIMOUT, IMG_SMILEY_NORAML)
         return
     }
     gIsGameOver = true
+    clearTimeout(gSetSmileyTimoutId)
     if (isVictory) setSmiley(IMG_SMILEY_HAPPY)
-    else setSmiley(IMG_SMILEY_SAD)
+    else setSmiley(IMG_SMILEY_DEAD)
     revealAllCells()
     toggleGameOverModal(true, isVictory)
 }
@@ -259,31 +275,68 @@ function getEmptyCells() {
 }
 
 function renderMineBoard() {
-    var htmlStr = ''
+    var coverBoardHtmlStr = ''
+    var mineBoardHtmlStr = ''
     for (var row = 0; row < gLevel.numRows; row++) {
-        htmlStr += '<tr>\n'
+        coverBoardHtmlStr += '<tr>\n'
+        mineBoardHtmlStr += '<tr>\n'
         for (var col = 0; col < gLevel.numCols; col++) {
-            var currCell = gMineBoard[row][col]
-            var clsCellType = currCell.isMine ? CLS_MINE : CLS_EMPTY
-            var cellContent = IMG_EMPTY
-            if (currCell.isHidden && ! currCell.isHint) {
-                clsCellType = CLS_HIDDEN
-                if (currCell.isFlagged) cellContent = IMG_FLAG
-            } else if (currCell.isMine) {
-                if (currCell.isExploded) cellContent = IMG_EXPLOTION
-                else cellContent = IMG_BOMB
-            } else if (0 < currCell.numNeighbouringMines) cellContent = currCell.numNeighbouringMines
-            else if (currCell.isFirst) clsCellType += ' ' + CLS_FIRST_CELL
-            if (currCell.isHint && currCell.isHidden) clsCellType += ' ' + CLS_HINT
-            if (gIsCheatMode && currCell.isMine) clsCellType += ' ' + CLS_MINE_CHEAT
-            htmlStr += `\t<td class="${CLS_CELL} ${clsCellType}"
+            var coverCellClasses = `${CLS_GAME_BOARD_CELL} ${CLS_COVER_BOARD_CELL}`
+            var mineCellClasses = `${CLS_GAME_BOARD_CELL} ${CLS_MINE_BOARD_CELL}`
+            var coverCellContent = IMG_EMPTY
+            var mineCellContent = IMG_EMPTY
+            coverBoardHtmlStr += `\t<td
+            id="${getCoverCellId(row, col)}"
+            class="${coverCellClasses}"
             onclick="onCellLeftClick(${row}, ${col})"
-            oncontextmenu="onCellRightClick(${row}, ${col})">
-            \n\t${cellContent}\n\t</td>\n`
+            oncontextmenu="onCellRightClick(${row}, ${col})"
+            >\n\t${coverCellContent}</td>\n`
+            mineBoardHtmlStr += `\t<td
+            id="${getMineCellId(row, col)}"
+            class="${mineCellClasses}"
+            >\n\t${mineCellContent}\n
+            \t</td>\n`
         }
-        htmlStr += '</tr>\n'
+        coverBoardHtmlStr += '</tr>\n'
+        mineBoardHtmlStr += '</tr>\n'
     }
-    // console.log(htmlStr)
-    const elMineBoard = document.querySelector('.' + CLS_MINE_BOARD)
-    elMineBoard.innerHTML = htmlStr
+    const elCoverBoard = document.querySelector('.' + CLS_COVER_BOARD_BODY)
+    elCoverBoard.innerHTML = coverBoardHtmlStr
+    const elMineBoard = document.querySelector('.' + CLS_MINE_BOARD_BODY)
+    elMineBoard.innerHTML = mineBoardHtmlStr
+}
+
+function renderUpdateMineBoard() {
+    forAllCells(gMineBoard, currCell => renderUpdateCell(currCell))
+}
+
+function renderUpdateCell(cell) {
+    var elCoverCell = document.querySelector(`#${getCoverCellId(cell.row, cell.col)}`)
+    var elMineCell = document.querySelector(`#${getMineCellId(cell.row, cell.col)}`)
+    if (cell.isFlagged) elCoverCell.innerHTML = IMG_FLAG
+    else elCoverCell.innerHTML = IMG_EMPTY
+    if (cell.isHint) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_HINT)
+    else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_HINT)
+    if (! cell.isHidden) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_UNCOVERED)
+    if (! cell.isHidden || cell.isHint) {
+        if (cell.isFirst) elMineCell.classList.add(CLS_MINE_BOARD_CELL_FIRST)
+        if (cell.isExploded) elMineCell.innerHTML = IMG_EXPLOTION
+        else if (cell.isMine) elMineCell.innerHTML = IMG_MINE
+        else if (0 < cell.numNeighbouringMines) elMineCell.innerHTML = cell.numNeighbouringMines
+        else elMineCell.innerHTML = IMG_EMPTY
+    }
+    if (gIsCheatMode && cell.isMine) {
+        elCoverCell.classList.add(CLS_COVER_BOARD_CELL_CHEAT_MINE)
+        elMineCell.classList.add(CLS_MINE_BOARD_CELL_CHEAT_MINE)
+    } else {
+        elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_CHEAT_MINE)
+        elMineCell.classList.remove(CLS_MINE_BOARD_CELL_CHEAT_MINE)
+    }
+}
+
+function getCoverCellId(row, col) {
+    return `cover-${row}-${col}`
+}
+function getMineCellId(row, col) {
+    return `mine-${row}-${col}`
 }
