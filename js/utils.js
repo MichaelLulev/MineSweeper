@@ -77,6 +77,17 @@ function getAllNeighbouringCells(mat, rowIdx, colIdx) {
     return neighbours
 }
 
+function getCellsInRange(mat, startRowIdx, startColIdx, endRowIdx, endColIdx) {
+    const cellsInRange = []
+    for (var row = startRowIdx; row <= endRowIdx; row++) {
+        for (var col = startColIdx; col <= endColIdx; col++) {
+            var currCell = mat[row][col]
+            cellsInRange.push(currCell)
+        }
+    }
+    return cellsInRange
+}
+
 function removeRandomElement(elements) {
     if (elements.length === 0) return
     const randIdx = getRandomInt(0, elements.length)

@@ -2,6 +2,7 @@
 
 const SMILEY_TIMOUT = 1000
 const HINT_TIMOUT = 1000
+const MEGA_HINT_TIMOUT = 2000
 const MARK_TIMOUT = 2000
 const REVEAL_CELL_TIMEOUT = 25
 const TIMER_UPDATE_INTERVAL = 47
@@ -20,7 +21,7 @@ const CLS_COVER_BOARD_CELL_UNCOVERED = 'cover-board-cell-uncovered'
 const CLS_HELP_MODE_MESSAGE = 'help-mode-message'
 const NORMAL_MODE_MESSAGE = 'Normal Mode'
 const CHEAT_MODE_MESSAGE = ' < Cheat Mode > '
-const MEGA_HINT_MODE_MESSAGE = ' < Mega Hint Mode (not implemented) > '
+const MEGA_HINT_MODE_MESSAGE = ' < Mega Hint Mode > '
 const HINT_MODE_MESSAGE = ' < Hint Mode > '
 
 const CLS_GAME_OVER_MODAL = 'game-over-modal'
@@ -78,7 +79,8 @@ var gMarkTimoutId
 var gGameStateStack
 var gGameStateIdx
 var gIsMegaHintMode
-var gIsMegaHintStart
+var gMegaHintStartCell
+var gMegaHintTimoutId
 
 function onInit(levelName) {
     if (gIsCheatMode === undefined) gIsCheatMode = false
@@ -91,7 +93,8 @@ function onInit(levelName) {
     gIsFirstClick = true
     gIsHintMode = false
     gIsMegaHintMode = false
-    gIsMegaHintStart = false
+    gMegaHintStartCell = null
+    clearTimeout(gMegaHintTimoutId)
     clearTimeout(gHintTimeoutId)
     clearTimeout(gSetSmileyTimoutId)
     gMineBoard = createMat(gLevel.numRows, gLevel.numCols, createBoardCell, true)
@@ -128,10 +131,14 @@ function onToggleCheatMode(isState) {
     renderUpdateMineBoard()
 }
 
-function onToggleMegaHint(isState) {
+function onToggleMegaHintMode(isState) {
     if (isState === undefined) gIsMegaHintMode = ! gIsMegaHintMode
     else gIsMegaHintMode = isState
     if (gIsMegaHintMode) gIsHintMode = false
+    else {
+        if (gMegaHintStartCell) gMegaHintStartCell.isMegaHintStart = false
+        gMegaHintStartCell = null
+    }
     renderHelpMessage()
 }
 
@@ -199,6 +206,7 @@ function createBoardCell(row, col) {
         isFirst: false,
         isFlagged: false,
         isMarked: false,
+        isMegaHintStart: false,
         numNeighbouringMines: -1,
         row,
         col,
@@ -209,6 +217,14 @@ function createBoardCell(row, col) {
 function onCellLeftClick(row, col) {
     if (gIsGameOver) return
     const clickedCell = gMineBoard[row][col]
+    if (gIsMegaHintMode) {
+        if (! gMegaHintStartCell) {
+            clickedCell.isMegaHintStart = true
+            gMegaHintStartCell = clickedCell
+            renderUpdateCell(clickedCell)
+        } else giveMegaHint(gMegaHintStartCell, clickedCell)
+        return
+    }
     if (gIsHintMode) {
         giveHint(clickedCell)
         return
@@ -266,6 +282,18 @@ function createRandomMines(num) {
         var currCell = randomEmptyCells[i]
         currCell.isMine = true
     }
+}
+
+function giveMegaHint(startCell, endCell) {
+    onToggleMegaHintMode(false)
+    const hintCells = getCellsInRange(gMineBoard, startCell.row, startCell.col, endCell.row, endCell.col)
+    forAllElements(hintCells, cell => cell.isHint = true)
+    renderUpdateMineBoard()
+    clearTimeout(gMegaHintTimoutId)
+    gMegaHintTimoutId = setTimeout(() => {
+        forAllCells(gMineBoard, cell => cell.isHint = false)
+        renderUpdateMineBoard()
+    }, MEGA_HINT_TIMOUT)
 }
 
 function giveHint(cell) {
@@ -443,7 +471,8 @@ function renderUpdateMineBoard() {
 function renderUpdateCell(cell) {
     var elCoverCell = document.querySelector(`#${getCoverCellId(cell.row, cell.col)}`)
     var elMineCell = document.querySelector(`#${getMineCellId(cell.row, cell.col)}`)
-    if (cell.isMarked) elCoverCell.innerHTML = IMG_MARK
+    if (cell.isMegaHintStart) elCoverCell.innerHTML = IMG_MEGA_HINT_MARK
+    else if (cell.isMarked) elCoverCell.innerHTML = IMG_MARK
     else if (cell.isFlagged) elCoverCell.innerHTML = IMG_FLAG
     else elCoverCell.innerHTML = IMG_EMPTY
     if (cell.isHint) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_HINT)
