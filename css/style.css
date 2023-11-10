@@ -23,13 +23,17 @@ button {
     margin: 0 2px;
 }
 
+.toggle-themes-button {
+    position: absolute;
+    right: 1em;
+    top: 1em;
+    width: 3em;
+    height: 3em;
+}
+
 div.levels button {
     width: 7.2em;
 }
-
-/* .set-mines-button {
-    height: 2em;
-} */
 
 .stats-table {
     margin: 0 auto;
@@ -61,6 +65,10 @@ div.levels button {
     left: 50%;
     transform: translate(-50%, 0%);
     z-index: 2;
+}
+
+.cover-board-body {
+    transition: 200ms;
 }
 
 .mine-board {
@@ -106,6 +114,7 @@ div.levels button {
 
 .cover-board-cell-selected {
     background-color: var(--cover-board-cell-selected-color);
+    opacity: 0.5;
 }
 
 .mine-board-cell {

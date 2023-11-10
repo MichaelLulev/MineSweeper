@@ -6,11 +6,13 @@ const MEGA_HINT_TIMOUT = 2000
 const HINT_TIMOUT = 1000
 const MARK_TIMOUT = 2000
 const HIDE_MODAL_TIMOUT = 1000
+const HIDE_COVER_BOARD_TIMEOUT = 200
 
 const SMILEY_TIMOUT = 1000
 const REVEAL_CELL_TIMEOUT = 25
 const TIMER_UPDATE_INTERVAL = 47
 
+const CLS_PLACE_MINES_BUTTON = 'place-mines-button'
 const CLS_GAME_BOARD_CELL = 'game-board-cell'
 const CLS_MINE_BOARD_BODY = 'mine-board-body'
 const CLS_MINE_BOARD_CELL = 'mine-board-cell'
@@ -48,8 +50,11 @@ const IMG_SMILEY_DEAD = '🤯'
 const IMG_SMILEY_HAPPY = '😎'
 const IMG_LIFE = '💖'
 const IMG_NO_LIFE = '🕳'
+const IMG_DARK_THEME = '🌒'
+const IMG_LIGHT_THEME = '🌞'
 
 const CLS_CSS_THEME = 'css-theme'
+const CLS_TOGGLE_THEMES_BUTTON = 'toggle-themes-button'
 const DIR_LIGHT_THEME = 'css/light-theme.css'
 const DIR_DARK_THEME = 'css/dark-theme.css'
 const DIR_DEFAULT_THEME = DIR_LIGHT_THEME
@@ -104,6 +109,8 @@ var gIsMegaHintMode
 var gPrevClickedCell
 var gMegaHintTimoutId
 var gThemeDir
+var gIsCoverBoardHidden
+var gIsPlacedMines
 
 var gElNumRows
 var gElNumCols
@@ -122,6 +129,7 @@ function onInit(levelName) {
     gIsFirstClick = true
     gIsHintMode = false
     gIsMegaHintMode = false
+    gIsPlacedMines = false
     gPrevClickedCell = null
     clearTimeout(gMegaHintTimoutId)
     clearTimeout(gHintTimeoutId)
@@ -135,20 +143,55 @@ function onInit(levelName) {
     gElNumCols = document.querySelector('#' + ID_NUM_COLS)
     gElNumMines = document.querySelector('#' + ID_NUM_MINES)
     gElNumLives = document.querySelector('#' + ID_NUM_LIVES)
-    renderLevel()
+    renderLevelDetailed()
     setCustomLevel()
     renderTheme()
-    renderLevel()
     renderTimer()
     document.addEventListener('contextmenu', ev => ev.preventDefault())
     onToggleModal(false, false)
     renderMineBoard()
+    toggleCoverBoard(false)
     renderLives()
     renderHelpMessage()
     setSmiley(IMG_SMILEY_NORAML)
 }
 
-function renderLevel() {
+function onPlaceMines() {
+    toggleCoverBoard()
+}
+
+function toggleCoverBoard(isHidden) {
+    if (! gIsFirstClick) return
+    const elCoverBoard = document.querySelector('.' + CLS_COVER_BOARD_BODY)
+    const elPlaceMinesButton = document.querySelector('.' + CLS_PLACE_MINES_BUTTON)
+    if (isHidden === undefined) gIsCoverBoardHidden = ! gIsCoverBoardHidden
+    else gIsCoverBoardHidden = isHidden
+    if (gIsCoverBoardHidden) {
+        elPlaceMinesButton.innerText = 'Done!'
+        elCoverBoard.style.opacity = 0
+        setTimeout(() => elCoverBoard.hidden = true, HIDE_COVER_BOARD_TIMEOUT)
+        forAllCells(gMineBoard, cell => cell.isHidden = false)
+        renderUpdateMineBoard()
+    } else {
+        elPlaceMinesButton.innerText = 'Place Mines'
+        elCoverBoard.hidden = false
+        setTimeout(() => elCoverBoard.style.opacity = 1, 0)
+        forAllCells(gMineBoard, cell => {
+            cell.isHidden = true
+            if (cell.isMine) gIsPlacedMines = true
+        })
+        renderUpdateMineBoard()
+    }
+}
+
+function onPlaceMine(row, col) {
+    const clickecCell = gMineBoard[row][col]
+    if (clickecCell.isMine) clickecCell.isMine = false
+    else clickecCell.isMine = true
+    renderUpdateCell(clickecCell)
+}
+
+function renderLevelDetailed() {
     gElNumRows.value = gLevel.numRows
     gElNumCols.value = gLevel.numCols
     gElNumMines.max = Math.floor(gLevel.numRows * gLevel.numCols / 2)
@@ -188,7 +231,10 @@ function onToggleTheme() {
 }
 
 function renderTheme() {
+    const elToggleThemesButton = document.querySelector('.' + CLS_TOGGLE_THEMES_BUTTON)
     const cssTheme = document.querySelector('.' + CLS_CSS_THEME)
+    if (gThemeDir === DIR_DARK_THEME) elToggleThemesButton.innerHTML = IMG_LIGHT_THEME
+    else elToggleThemesButton.innerHTML = IMG_DARK_THEME
     cssTheme.href = gThemeDir
 }
 
@@ -316,7 +362,7 @@ function onCellLeftClick(row, col) {
     if (clickedCell.isFlagged || ! clickedCell.isHidden) return
     if (gIsFirstClick) {
         clickedCell.isFirst = true
-        createSafeMines(clickedCell)
+        if(! gIsPlacedMines) createSafeMines(clickedCell)
         gIsFirstClick = false
         initNumNeighbouringMines()
         clearInterval(gTimerIntervalId)
@@ -563,6 +609,7 @@ function renderMineBoard() {
             strMineBoardHtml += `\t<td
             id="${getMineCellId(row, col)}"
             class="${mineCellClasses}"
+            onclick="onPlaceMine(${row}, ${col})"
             >\n\t${mineCellContent}\n
             \t</td>\n`
             strInvisibleBoardHtml += `\t<td
@@ -597,7 +644,7 @@ function renderUpdateCell(cell) {
     else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_HINT)
     if (! cell.isHidden) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_UNCOVERED)
     else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_UNCOVERED)
-    if (! cell.isHidden || cell.isHint) {
+    if (! cell.isHidden || cell.isHint || cell.isSelected) {
         if (cell.isFirst) elMineCell.classList.add(CLS_MINE_BOARD_CELL_FIRST)
         if (cell.isMine && cell.isExploded) elMineCell.innerHTML = IMG_EXPLOTION
         else if (cell.isMine) elMineCell.innerHTML = IMG_MINE
