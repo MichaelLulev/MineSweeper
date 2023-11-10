@@ -1,0 +1,17 @@
+:root {
+    /* color: antiquewhite;
+    color: darkslategray;
+    color: darkcyan;
+    color: darksalmon;
+    color: darkmagenta;
+    color: midnightblue; */
+
+    /* Light Theme */
+    --background-color: white;
+    --game-text-color: black;
+    --cover-board-cell-color: lightslategray;
+    --mine-board-cell-color: lightskyblue;
+    --mine-baord-first-cell-color: lightsalmon;
+    --game-over-modal-background-color: rgba(250, 235, 215, 0.85);
+    --cheat-outline-color: red;
+}

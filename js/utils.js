@@ -84,6 +84,15 @@ function getAllNeighbouringCells(mat, rowIdx, colIdx) {
     return neighbours
 }
 
+function getCellsInRangeOmniDir(mat, startRowIdx, startColIdx, endRowIdx, endColIdx, checkExclude) {
+    const startRow = Math.min(startRowIdx, endRowIdx)
+    const startCol = Math.min(startColIdx, endColIdx)
+    const endRow = Math.max(startRowIdx, endRowIdx)
+    const endCol = Math.max(startColIdx, endColIdx)
+    const cellsInRangeOmniDir = getCellsInRange(mat, startRow, startCol, endRow, endCol, checkExclude)
+    return cellsInRangeOmniDir
+}
+
 function getCellsInRange(mat, startRowIdx, startColIdx, endRowIdx, endColIdx, checkExclude) {
     if (typeof checkExclude !== 'function') checkExclude = () => false
     const numRows = mat.length

@@ -2,10 +2,12 @@
 
 const NUM_EXTERMINATOR_MINES = 3
 
-const SMILEY_TIMOUT = 1000
+const MEGA_HINT_TIMOUT = 2000
 const HINT_TIMOUT = 1000
-const MEGA_HINT_TIMOUT = 10000
 const MARK_TIMOUT = 2000
+const HIDE_MODAL_TIMOUT = 1000
+
+const SMILEY_TIMOUT = 1000
 const REVEAL_CELL_TIMEOUT = 25
 const TIMER_UPDATE_INTERVAL = 47
 
@@ -19,6 +21,7 @@ const CLS_COVER_BOARD_CELL = 'cover-board-cell'
 const CLS_COVER_BOARD_CELL_HINT = 'cover-board-cell-hint'
 const CLS_COVER_BOARD_CELL_CHEAT_MINE = 'cover-board-cell-cheat-mine'
 const CLS_COVER_BOARD_CELL_UNCOVERED = 'cover-board-cell-uncovered'
+const CLS_COVER_BOARD_CELL_SELECTED = 'cover-board-cell-selected'
 
 const CLS_HELP_MODE_MESSAGE = 'help-mode-message'
 const NORMAL_MODE_MESSAGE = 'Normal Mode'
@@ -40,6 +43,10 @@ const IMG_SMILEY_NORAML = '😀'
 const IMG_SMILEY_SAD = '😖'
 const IMG_SMILEY_DEAD = '🤯'
 const IMG_SMILEY_HAPPY = '😎'
+
+const CLS_CSS_THEME = 'css-theme'
+const CSS_LIGHT_THEME_DIR = 'css/light-theme.css'
+const CSS_DARK_THEME_DIR = 'css/dark-theme.css'
 
 const gLevels = {
     beginner: {
@@ -81,8 +88,9 @@ var gMarkTimoutId
 var gGameStateStack
 var gGameStateIdx
 var gIsMegaHintMode
-var gLastClickedCell
+var gPrevClickedCell
 var gMegaHintTimoutId
+var gThemeDir
 
 function onInit(levelName) {
     if (gIsCheatMode === undefined) gIsCheatMode = false
@@ -95,13 +103,14 @@ function onInit(levelName) {
     gIsFirstClick = true
     gIsHintMode = false
     gIsMegaHintMode = false
-    gLastClickedCell = null
+    gPrevClickedCell = null
     clearTimeout(gMegaHintTimoutId)
     clearTimeout(gHintTimeoutId)
     clearTimeout(gSetSmileyTimoutId)
     gMineBoard = createMat(gLevel.numRows, gLevel.numCols, createBoardCell, true)
     clearInterval(gTimerIntervalId)
     gTimePlayed = 0
+    gThemeDir = CSS_LIGHT_THEME_DIR
     renderTimer()
     document.addEventListener('contextmenu', ev => ev.preventDefault())
     toggleGameOverModal(false, false)
@@ -126,6 +135,13 @@ function renderLives() {
     elNumLives.innerText = gNumLives
 }
 
+function onToggleTheme() {
+    if (gThemeDir === CSS_DARK_THEME_DIR) gThemeDir = CSS_LIGHT_THEME_DIR
+    else gThemeDir = CSS_DARK_THEME_DIR
+    const cssTheme = document.querySelector('.' + CLS_CSS_THEME)
+    cssTheme.href = gThemeDir
+}
+
 function onToggleCheatMode(isState) {
     if (isState === undefined) gIsCheatMode = ! gIsCheatMode
     else gIsCheatMode = isState
@@ -136,15 +152,15 @@ function onToggleCheatMode(isState) {
 function onToggleMegaHintMode(isState) {
     if (isState === undefined) gIsMegaHintMode = ! gIsMegaHintMode
     else gIsMegaHintMode = isState
-    if (gIsMegaHintMode) gIsHintMode = false
-    else if (gLastClickedCell) gLastClickedCell.isMegaHintStart = false
+    if (gIsMegaHintMode) onToggleHintMode(false)
+    else if (gPrevClickedCell) forAllCells(gMineBoard, cell => cell.isSelected = false)
     renderHelpMessage()
 }
 
 function onToggleHintMode(isState) {
     if (isState === undefined) gIsHintMode = ! gIsHintMode
     else gIsHintMode = isState
-    if (gIsHintMode) gIsMegaHintMode = false
+    if (gIsHintMode) onToggleMegaHintMode(false)
     renderHelpMessage()
 }
 
@@ -179,6 +195,7 @@ function onExterminator() {
     const randomMineCells = getRandomElements(mineCells, NUM_EXTERMINATOR_MINES)
     forAllElements(randomMineCells, cell => cell.isMine = false)
     initNumNeighbouringMines()
+    pushGameState()
     renderUpdateMineBoard()
 }
 
@@ -198,9 +215,18 @@ function onRedo() {
 
 function pushGameState() {
     if (gIsGameOver) return
+    const prevGameState = gGameStateStack[gGameStateIdx]
+    var newGameState = JSON.stringify(gMineBoard)
+    newGameState = JSON.parse(newGameState)
+    forAllCells(newGameState, cell => {
+        cell.isHint = false
+        cell.isMarked = false
+        cell.isSelected = false
+    })
+    newGameState = JSON.stringify(newGameState)
+    if (newGameState === prevGameState) return
     gGameStateStack.splice(++gGameStateIdx)
-    const gameState = JSON.stringify(gMineBoard)
-    gGameStateStack.push(gameState)
+    gGameStateStack.push(newGameState)
 }
 
 function createBoardCell(row, col) {
@@ -209,11 +235,11 @@ function createBoardCell(row, col) {
         isMine: false,
         isExploded: false,
         isHidden: true,
-        isHint: false,
         isFirst: false,
         isFlagged: false,
+        isHint: false,
         isMarked: false,
-        isMegaHintStart: false,
+        isSelected: false,
         numNeighbouringMines: -1,
         row,
         col,
@@ -225,18 +251,18 @@ function onCellLeftClick(row, col) {
     if (gIsGameOver) return
     const clickedCell = gMineBoard[row][col]
     if (gIsMegaHintMode) {
-        if (! gLastClickedCell || ! gLastClickedCell.isMegaHintStart) {
-            clickedCell.isMegaHintStart = true
+        if (! gPrevClickedCell || ! gPrevClickedCell.isSelected) {
+            clickedCell.isSelected = true
             renderUpdateCell(clickedCell)
-        } else giveMegaHint(gLastClickedCell, clickedCell)
-        gLastClickedCell = clickedCell
+        } else giveMegaHint()
+        gPrevClickedCell = clickedCell
         return
     }
     if (gIsHintMode) {
         giveHint(clickedCell)
         return
     }
-    gLastClickedCell = clickedCell
+    gPrevClickedCell = clickedCell
     if (clickedCell.isFlagged || ! clickedCell.isHidden) return
     if (gIsFirstClick) {
         clickedCell.isFirst = true
@@ -292,20 +318,27 @@ function createRandomMines(num) {
     }
 }
 
-function giveMegaHint(startCell, endCell) {
+function giveMegaHint() {
+    forAllCells(gMineBoard, cell => {
+        if (cell.isSelected) {
+            cell.isHint = true
+        }
+    })
     onToggleMegaHintMode(false)
-    const startRow = Math.min(startCell.row, endCell.row)
-    const startCol = Math.min(startCell.col, endCell.col)
-    const endRow = Math.max(startCell.row, endCell.row)
-    const endCol = Math.max(startCell.col, endCell.col)
-    const hintCells = getCellsInRange(gMineBoard, startRow, startCol, endRow, endCol)
-    forAllElements(hintCells, cell => cell.isHint = true)
     renderUpdateMineBoard()
     clearTimeout(gMegaHintTimoutId)
     gMegaHintTimoutId = setTimeout(() => {
         forAllCells(gMineBoard, cell => cell.isHint = false)
         renderUpdateMineBoard()
     }, MEGA_HINT_TIMOUT)
+}
+
+function onSelect(row, col) {
+    if (! gPrevClickedCell || ! gPrevClickedCell.isSelected) return
+    forAllCells(gMineBoard, cell => cell.isSelected = false)
+    const selectedCells = getCellsInRangeOmniDir(gMineBoard, gPrevClickedCell.row, gPrevClickedCell.col, row, col)
+    forAllElements(selectedCells, cell => cell.isSelected = true)
+    renderUpdateMineBoard()
 }
 
 function giveHint(cell) {
@@ -354,22 +387,6 @@ function distanceBetweenCells(cell1, cell2) {
     return distance(cell1.row, cell1.col, cell2.row, cell2.col)
 }
 
-// function revealCells(cell, depth=0) {
-//     if (! cell.isHidden || cell.isFlagged) return
-//     if (0 < cell.numNeighbouringMines) {
-//         cell.isHidden = false
-//         setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
-//         return
-//     }
-//     cell.isHidden = false
-//     setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
-//     const allNeighbouringCells = getAllNeighbouringCells(gMineBoard, cell.row, cell.col)
-//     for (var i = 0; i < allNeighbouringCells.length; i++) {
-//         var currCell = allNeighbouringCells[i]
-//         revealCells(currCell, depth + 1)
-//     }
-// }
-
 function revealAllCells(startCell) {
     if (! startCell) startCell = gMineBoard[0][0]
     forAllCells(gMineBoard, cell => {
@@ -404,7 +421,7 @@ function gameOver(isVictory) {
         const highScores = updateHighScores(score)
         renderHighScores(highScores)
     }
-    revealAllCells(gLastClickedCell)
+    revealAllCells(gPrevClickedCell)
     toggleGameOverModal(true, isVictory)
 }
 
@@ -450,8 +467,9 @@ function toggleGameOverModal(isShow, isVictory) {
         setTimeout(() => elGameOverModal.style.opacity = 1, 0)
         
     } else {
-        elGameOverMessage.innerText = ''
-        elGameOverModal.hidden = true
+        elGameOverModal.style.opacity = 1
+        setTimeout(() => elGameOverModal.style.opacity = 0, 0)
+        setTimeout(() => elGameOverModal.hidden = true, HIDE_MODAL_TIMOUT)
     }
 }
 
@@ -486,6 +504,7 @@ function renderMineBoard() {
             class="${coverCellClasses}"
             onclick="onCellLeftClick(${row}, ${col})"
             oncontextmenu="onCellRightClick(${row}, ${col})"
+            onmouseover="onSelect(${row}, ${col})"
             >\n\t${coverCellContent}</td>\n`
             mineBoardHtmlStr += `\t<td
             id="${getMineCellId(row, col)}"
@@ -509,10 +528,11 @@ function renderUpdateMineBoard() {
 function renderUpdateCell(cell) {
     var elCoverCell = document.querySelector(`#${getCoverCellId(cell.row, cell.col)}`)
     var elMineCell = document.querySelector(`#${getMineCellId(cell.row, cell.col)}`)
-    if (cell.isMegaHintStart) elCoverCell.innerHTML = IMG_MEGA_HINT_MARK
-    else if (cell.isMarked) elCoverCell.innerHTML = IMG_MARK
+    if (cell.isMarked) elCoverCell.innerHTML = IMG_MARK
     else if (cell.isFlagged) elCoverCell.innerHTML = IMG_FLAG
     else elCoverCell.innerHTML = IMG_EMPTY
+    if (cell.isSelected) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_SELECTED)
+    else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_SELECTED)
     if (cell.isHint) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_HINT)
     else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_HINT)
     if (! cell.isHidden) elCoverCell.classList.add(CLS_COVER_BOARD_CELL_UNCOVERED)

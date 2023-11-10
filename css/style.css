@@ -1,10 +1,10 @@
-:root {
-}
-
 body {
+    color: var(--game-text-color);
+    background-color: var(--background-color);
     box-sizing: border-box;
     user-select: none;
     text-align: center;
+    transition: 200ms;
 }
 
 div {
@@ -36,12 +36,10 @@ div.levels button {
     height: 35px;
     min-height: 35px;
     border-radius: 10px;
-    transition: 200ms;
-    /* border-radius: 5px; */
 }
 
 .cover-board-cell {
-    background-color: lightslategray;
+    background-color: var(--cover-board-cell-color);
 }
 
 .cover-board-cell-hint {
@@ -49,19 +47,23 @@ div.levels button {
 }
 
 .cover-board-cell-cheat-mine {
-    outline: 2px red solid;
+    outline: 2px var(--cheat-outline-color) solid;
 }
 
 .cover-board-cell-uncovered {
     opacity: 0;
 }
 
+.cover-board-cell-selected {
+    background-color: coral;
+}
+
 .mine-board-cell {
-    background-color: lightskyblue;
+    background-color: var(--mine-board-cell-color);
 }
 
 .mine-board-cell-first {
-    background-color: lightsalmon;
+    background-color: var(--mine-baord-first-cell-color);
 }
 
 .game-over-modal {
@@ -70,15 +72,15 @@ div.levels button {
     top: 50%;
     transform: translate(-50%, -50%);
     max-height: 80vh;
-    background-color: rgba(250, 235, 215, 0.85);
+    background-color: var(--game-over-modal-background-color);
     border-radius: 1em;
     padding: 0em 3em;
     opacity: 0;
-    transition: 2500ms;
+    transition: 1000ms;
 }
 
 .high-scores-list {
-    border: 1px black solid;
+    border: 1px solid;
     min-width: 5vw;
     max-height: 20vh;
     overflow-y: auto;

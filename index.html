@@ -4,23 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mine Sweeper</title>
+    <link class="css-theme" rel="stylesheet" href="css/light-theme.css" />
     <link rel="stylesheet" href="css/style.css" />
 </head>
 <body onload="onInit()">
     <div class="game-body">
         <h1 class="title">Mine Sweeper</h1>
-
-        <button class="restart" onclick="onInit()"></button>
+        
+        <div>
+            <button class="toggle-theme-button" onclick="onToggleTheme()">Toggle Theme</button>
+        </div>
         
         <div class="levels">
             <button onclick="onInit('beginner')">Beginner</button>
             <button onclick="onInit('medium')">Medium</button>
             <button onclick="onInit('expert')">Expert</button>
         </div>
-
+        
         <div class="stats">
             <h2>Timer: <span class="timer"></span></h2>
             <h2>Lives: <span class="num-lives"></span></h2>
+            <div>
+                <button class="restart" onclick="onInit()"></button>
+            </div>
             <button class="undo" onclick="onUndo()">Undo</button>
             <button class="redo" onclick="onRedo()">Redo</button>
         </div>
