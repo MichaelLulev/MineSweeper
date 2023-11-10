@@ -22,6 +22,8 @@ const CLS_COVER_BOARD_CELL_HINT = 'cover-board-cell-hint'
 const CLS_COVER_BOARD_CELL_CHEAT_MINE = 'cover-board-cell-cheat-mine'
 const CLS_COVER_BOARD_CELL_UNCOVERED = 'cover-board-cell-uncovered'
 const CLS_COVER_BOARD_CELL_SELECTED = 'cover-board-cell-selected'
+const CLS_INVISIBLE_BOARD_BODY = 'invisible-board-body'
+const CLS_INVISIBLE_BOARD_CELL = 'invisible-board-cell'
 
 const CLS_HELP_MODE_MESSAGE = 'help-mode-message'
 const NORMAL_MODE_MESSAGE = 'Normal Mode'
@@ -29,6 +31,7 @@ const CHEAT_MODE_MESSAGE = ' < Cheat Mode > '
 const MEGA_HINT_MODE_MESSAGE = ' < Mega Hint Mode > '
 const HINT_MODE_MESSAGE = ' < Hint Mode > '
 
+const CLS_CLOSE_MODAL_BUTTON = 'close-modal-button'
 const CLS_GAME_OVER_MODAL = 'game-over-modal'
 const CLS_GAME_OVER_MODAL_MESSAGE = 'game-over-modal-message'
 const CLS_HIGH_SCORES_LIST = 'high-scores-list'
@@ -43,10 +46,19 @@ const IMG_SMILEY_NORAML = '😀'
 const IMG_SMILEY_SAD = '😖'
 const IMG_SMILEY_DEAD = '🤯'
 const IMG_SMILEY_HAPPY = '😎'
+const IMG_LIFE = '💖'
+const IMG_NO_LIFE = '🕳'
 
 const CLS_CSS_THEME = 'css-theme'
-const CSS_LIGHT_THEME_DIR = 'css/light-theme.css'
-const CSS_DARK_THEME_DIR = 'css/dark-theme.css'
+const DIR_LIGHT_THEME = 'css/light-theme.css'
+const DIR_DARK_THEME = 'css/dark-theme.css'
+const DIR_DEFAULT_THEME = DIR_LIGHT_THEME
+const STORAGE_KEY_THEME = 'theme'
+
+const ID_NUM_ROWS = 'num-rows'
+const ID_NUM_COLS = 'num-cols'
+const ID_NUM_MINES = 'num-mines'
+const ID_NUM_LIVES = 'num-lives'
 
 const gLevels = {
     beginner: {
@@ -76,6 +88,7 @@ var gIsCheatMode
 var gIsGameOver
 var gMineBoard
 var gLevel
+var gCustomLevel
 var gNumLives
 var gIsFirstClick
 var gIsHintMode
@@ -92,10 +105,16 @@ var gPrevClickedCell
 var gMegaHintTimoutId
 var gThemeDir
 
+var gElNumRows
+var gElNumCols
+var gElNumMines
+var gElNumLives
+
 function onInit(levelName) {
     if (gIsCheatMode === undefined) gIsCheatMode = false
     if (levelName !== undefined) gLevel = gLevels[levelName]
     else if (gLevel === undefined) gLevel = gLevels['medium']
+    else gLevel = gCustomLevel
     gGameStateStack = []
     gGameStateIdx = -1
     gIsGameOver = false
@@ -110,14 +129,40 @@ function onInit(levelName) {
     gMineBoard = createMat(gLevel.numRows, gLevel.numCols, createBoardCell, true)
     clearInterval(gTimerIntervalId)
     gTimePlayed = 0
-    gThemeDir = CSS_LIGHT_THEME_DIR
+    gThemeDir = localStorage[STORAGE_KEY_THEME]
+    if (! gThemeDir) gThemeDir = DIR_DEFAULT_THEME
+    gElNumRows = document.querySelector('#' + ID_NUM_ROWS)
+    gElNumCols = document.querySelector('#' + ID_NUM_COLS)
+    gElNumMines = document.querySelector('#' + ID_NUM_MINES)
+    gElNumLives = document.querySelector('#' + ID_NUM_LIVES)
+    renderLevel()
+    setCustomLevel()
+    renderTheme()
+    renderLevel()
     renderTimer()
     document.addEventListener('contextmenu', ev => ev.preventDefault())
-    toggleGameOverModal(false, false)
+    onToggleModal(false, false)
     renderMineBoard()
-    renderLives(gNumLives)
+    renderLives()
     renderHelpMessage()
     setSmiley(IMG_SMILEY_NORAML)
+}
+
+function renderLevel() {
+    gElNumRows.value = gLevel.numRows
+    gElNumCols.value = gLevel.numCols
+    gElNumMines.max = Math.floor(gLevel.numRows * gLevel.numCols / 2)
+    gElNumMines.value = gLevel.numMines
+    gElNumLives.value = gLevel.numLives
+}
+
+function setCustomLevel() {
+    gCustomLevel = {
+        numRows: gElNumRows.value,
+        numCols: gElNumCols.value,
+        numMines: gElNumMines.value,
+        numLives: gElNumLives.value,
+    }
 }
 
 function renderTimer() {
@@ -126,18 +171,23 @@ function renderTimer() {
 }
 
 function setSmiley(img) {
-    const elButtonRestart = document.querySelector('button.restart')
+    const elButtonRestart = document.querySelector('.restart-smiley')
     elButtonRestart.innerText = img
 }
 
 function renderLives() {
     const elNumLives = document.querySelector('.num-lives')
-    elNumLives.innerText = gNumLives
+    elNumLives.innerText = 0 < gNumLives ? IMG_LIFE.repeat(gNumLives) : IMG_NO_LIFE
 }
 
 function onToggleTheme() {
-    if (gThemeDir === CSS_DARK_THEME_DIR) gThemeDir = CSS_LIGHT_THEME_DIR
-    else gThemeDir = CSS_DARK_THEME_DIR
+    if (gThemeDir === DIR_DARK_THEME) gThemeDir = DIR_LIGHT_THEME
+    else gThemeDir = DIR_DARK_THEME
+    localStorage[STORAGE_KEY_THEME] = gThemeDir
+    renderTheme()
+}
+
+function renderTheme() {
     const cssTheme = document.querySelector('.' + CLS_CSS_THEME)
     cssTheme.href = gThemeDir
 }
@@ -398,7 +448,7 @@ function revealAllCells(startCell) {
 function gameOver(isVictory) {
     if (! isVictory && 0 < gNumLives) {
         gNumLives--
-        renderLives(gNumLives)
+        renderLives()
         clearTimeout(gSetSmileyTimoutId)
         setSmiley(IMG_SMILEY_SAD)
         gSetSmileyTimoutId = setTimeout(setSmiley, SMILEY_TIMOUT, IMG_SMILEY_NORAML)
@@ -422,7 +472,7 @@ function gameOver(isVictory) {
         renderHighScores(highScores)
     }
     revealAllCells(gPrevClickedCell)
-    toggleGameOverModal(true, isVictory)
+    onToggleModal(true, isVictory)
 }
 
 function renderHighScores(highScores) {
@@ -457,7 +507,7 @@ function checkVictory() {
     return isVictory
 }
 
-function toggleGameOverModal(isShow, isVictory) {
+function onToggleModal(isShow, isVictory) {
     const elGameOverMessage = document.querySelector('.' + CLS_GAME_OVER_MODAL_MESSAGE)
     const elGameOverModal = document.querySelector('.' + CLS_GAME_OVER_MODAL)
     if (isShow) {
@@ -489,36 +539,46 @@ function getMineBoardCells(func) {
 }
 
 function renderMineBoard() {
-    var coverBoardHtmlStr = ''
-    var mineBoardHtmlStr = ''
+    var strCoverBoardHtml = ''
+    var strMineBoardHtml = ''
+    var strInvisibleBoardHtml = ''
     for (var row = 0; row < gLevel.numRows; row++) {
-        coverBoardHtmlStr += '<tr>\n'
-        mineBoardHtmlStr += '<tr>\n'
+        strCoverBoardHtml += '<tr>\n'
+        strMineBoardHtml += '<tr>\n'
+        strInvisibleBoardHtml += '<tr>\n'
         for (var col = 0; col < gLevel.numCols; col++) {
             var coverCellClasses = `${CLS_GAME_BOARD_CELL} ${CLS_COVER_BOARD_CELL}`
             var mineCellClasses = `${CLS_GAME_BOARD_CELL} ${CLS_MINE_BOARD_CELL}`
+            var invisibleBoardClasses = `${CLS_GAME_BOARD_CELL} ${CLS_INVISIBLE_BOARD_CELL}`
             var coverCellContent = IMG_EMPTY
             var mineCellContent = IMG_EMPTY
-            coverBoardHtmlStr += `\t<td
+            strCoverBoardHtml += `\t<td
             id="${getCoverCellId(row, col)}"
             class="${coverCellClasses}"
             onclick="onCellLeftClick(${row}, ${col})"
             oncontextmenu="onCellRightClick(${row}, ${col})"
             onmouseover="onSelect(${row}, ${col})"
-            >\n\t${coverCellContent}</td>\n`
-            mineBoardHtmlStr += `\t<td
+            >\n\t${coverCellContent}\n
+            \t</td>\n`
+            strMineBoardHtml += `\t<td
             id="${getMineCellId(row, col)}"
             class="${mineCellClasses}"
             >\n\t${mineCellContent}\n
             \t</td>\n`
+            strInvisibleBoardHtml += `\t<td
+            class="${invisibleBoardClasses}"
+            ><td>\n`
         }
-        coverBoardHtmlStr += '</tr>\n'
-        mineBoardHtmlStr += '</tr>\n'
+        strCoverBoardHtml += '</tr>\n'
+        strMineBoardHtml += '</tr>\n'
+        strInvisibleBoardHtml += '</tr>\n'
     }
     const elCoverBoard = document.querySelector('.' + CLS_COVER_BOARD_BODY)
-    elCoverBoard.innerHTML = coverBoardHtmlStr
+    elCoverBoard.innerHTML = strCoverBoardHtml
     const elMineBoard = document.querySelector('.' + CLS_MINE_BOARD_BODY)
-    elMineBoard.innerHTML = mineBoardHtmlStr
+    elMineBoard.innerHTML = strMineBoardHtml
+    const elInvisibleBoard = document.querySelector('.' + CLS_INVISIBLE_BOARD_BODY)
+    elInvisibleBoard.innerHTML = strInvisibleBoardHtml
 }
 
 function renderUpdateMineBoard() {

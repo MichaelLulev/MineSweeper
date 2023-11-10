@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <title>Mine Sweeper</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sometype+Mono&display=swap" rel="stylesheet">
+
     <link class="css-theme" rel="stylesheet" href="css/light-theme.css" />
     <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -15,17 +21,46 @@
             <button class="toggle-theme-button" onclick="onToggleTheme()">Toggle Theme</button>
         </div>
         
+        <!-- <div>
+            <button class="place-mines-button" onclick="onPlaceMines()">Place Mines</button>
+        </div> -->
+        
         <div class="levels">
             <button onclick="onInit('beginner')">Beginner</button>
             <button onclick="onInit('medium')">Medium</button>
             <button onclick="onInit('expert')">Expert</button>
+            <button onclick="onInit()">Custom</button>
+        </div>
+        <div>
+            <label for="num-rows">Rows:</label>
+            <input type="number" min="4" max="16" name="rows" id="num-rows" oninput="setCustomLevel()" />
+
+            <label for="num-cols">Columns:</label>
+            <input type="number" min="4" max="16" name="cols" id="num-cols" oninput="setCustomLevel()" />
+
+            <label for="num-mines">Mines:</label>
+            <input type="number" min="1" max="128" name="mines" id="num-mines" oninput="setCustomLevel()" />
+
+            <label for="num-lives">Lives:</label>
+            <input type="number" min="0" max="3" name="lives" id="num-lives" oninput="setCustomLevel()" />
         </div>
         
-        <div class="stats">
-            <h2>Timer: <span class="timer"></span></h2>
-            <h2>Lives: <span class="num-lives"></span></h2>
+        <div>
+            <table class="stats-table">
+                <tbody>
+                    <tr>
+                        <td>
+                            <h2>Timer: <span class="timer"></span></h2>
+                        </td>
+                        <td>
+                            <h2>Lives: <span class="num-lives"></span></h2>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
             <div>
-                <button class="restart" onclick="onInit()"></button>
+                <button class="restart-smiley" onclick="onInit()"></button>
             </div>
             <button class="undo" onclick="onUndo()">Undo</button>
             <button class="redo" onclick="onRedo()">Redo</button>
@@ -43,6 +78,12 @@
                     <!-- Filled Dynamically -->
                 </tbody>    
             </table>
+
+            <table class="invisible-board">
+                <tbody class="invisible-board-body">
+                    <!-- Filled Dynamically -->
+                </tbody>
+            </table>
         </div>
         
         <div class="help-modes">
@@ -57,8 +98,9 @@
         </div>
 
         <div class="game-over-modal" hidden>
+            <button class="close-modal-button" onclick="onToggleModal(false)">x</button>
             <h2 class="game-over-modal-message"></h2>
-            <button class="restart" onclick="onInit()">Restart</button>
+            <button class="restart-button" onclick="onInit()">Restart</button>
             <h3>High Scores</h3>
             <ol class="high-scores-list">
                 <!-- Filled Dynamically -->

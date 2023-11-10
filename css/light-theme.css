@@ -4,14 +4,16 @@
     color: darkcyan;
     color: darksalmon;
     color: darkmagenta;
-    color: midnightblue; */
+    color: midnightblue;
+    color: crimson; */
 
     /* Light Theme */
     --background-color: white;
     --game-text-color: black;
     --cover-board-cell-color: lightslategray;
+    --cover-board-cell-selected-color: lightsalmon;
     --mine-board-cell-color: lightskyblue;
-    --mine-baord-first-cell-color: lightsalmon;
+    --mine-baord-first-cell-color: lightgreen;
     --game-over-modal-background-color: rgba(250, 235, 215, 0.85);
-    --cheat-outline-color: red;
+    --cheat-outline-color: crimson;
 }

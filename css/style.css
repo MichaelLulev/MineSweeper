@@ -1,3 +1,11 @@
+:root {
+    --cell-size: 2em;
+}
+
+* {
+    font-family: 'Sometype Mono', monospace;
+}
+
 body {
     color: var(--game-text-color);
     background-color: var(--background-color);
@@ -8,7 +16,7 @@ body {
 }
 
 div {
-    margin: 20px auto;
+    margin: 1.3em auto;
 }
 
 button {
@@ -16,29 +24,75 @@ button {
 }
 
 div.levels button {
-    width: 95px;
+    width: 7.2em;
+}
+
+/* .set-mines-button {
+    height: 2em;
+} */
+
+.stats-table {
+    margin: 0 auto;
+    border-spacing: 2em 0;
+}
+
+.stats-table * {
+    margin: 0;
+}
+
+.stats-table td {
+    min-width: 13em;
+    text-align: left;
+}
+
+.restart-smiley {
+    font-size: 1.5em;
+    height: 2.1em;
+    width: 2.1em;
+    text-align: center;
+}
+
+.game-board table {
+    border-spacing: 0.3em;
 }
 
 .cover-board {
-    position:absolute;
+    position: absolute;
     left: 50%;
     transform: translate(-50%, 0%);
+    z-index: 2;
 }
 
 .mine-board {
+    outline: 0.1em solid;
+    border-radius: 0.5em;
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    z-index: 1;
+}
+
+.invisible-board {
+    opacity: 0;
     margin: 0 auto;
 }
 
 .game-board-cell {
     opacity: 1;
-    width: 35px;
-    min-width: 35px;
-    height: 35px;
-    min-height: 35px;
-    border-radius: 10px;
+    width: var(--cell-size);
+    min-width: var(--cell-size);
+    height: var(--cell-size);
+    min-height: var(--cell-size);
+    border-radius: 0.25em;
+    transition: 200ms;
+}
+
+.game-board-cell:hover {
+    filter: brightness(125%);
 }
 
 .cover-board-cell {
+    /* outline: 1px black solid; */
     background-color: var(--cover-board-cell-color);
 }
 
@@ -46,24 +100,25 @@ div.levels button {
     opacity: 0.3;
 }
 
-.cover-board-cell-cheat-mine {
-    outline: 2px var(--cheat-outline-color) solid;
-}
-
 .cover-board-cell-uncovered {
     opacity: 0;
 }
 
 .cover-board-cell-selected {
-    background-color: coral;
+    background-color: var(--cover-board-cell-selected-color);
 }
 
 .mine-board-cell {
+    outline: 0.1em black solid;
     background-color: var(--mine-board-cell-color);
 }
 
 .mine-board-cell-first {
     background-color: var(--mine-baord-first-cell-color);
+}
+
+.mine-board-cell-cheat-mine {
+    outline: 0.21em var(--cheat-outline-color) solid;
 }
 
 .game-over-modal {
@@ -77,10 +132,17 @@ div.levels button {
     padding: 0em 3em;
     opacity: 0;
     transition: 1000ms;
+    z-index: 3;
+}
+
+.close-modal-button {
+    position: absolute;
+    right: 1em;
+    top: 1em;
 }
 
 .high-scores-list {
-    border: 1px solid;
+    border: 0.1em solid;
     min-width: 5vw;
     max-height: 20vh;
     overflow-y: auto;
