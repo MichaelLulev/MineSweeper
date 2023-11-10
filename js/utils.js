@@ -30,22 +30,35 @@ function forAllElements(elements, func, ...args) {
     return newElements
 }
 
-function getEmptyCoords(mat, checkEmpty, rowIdxKey='i', colIdxKey='j') {
+function getCells(mat, func, rowIdxKey, colIdxKey) {
+    const cellsCoords = getCellsCoords(mat, func, rowIdxKey, colIdxKey)
+    const cells = []
+    for (var i = 0; i < cellsCoords.length; i++) {
+        var currCoords = cellsCoords[i]
+        var row = currCoords[rowIdxKey]
+        var col = currCoords[colIdxKey]
+        var currCell = mat[row][col]
+        cells.push(currCell)
+    }
+    return cells
+}
+
+function getCellsCoords(mat, checkFunction, rowIdxKey='i', colIdxKey='j') {
     const rows = mat.length
     const cols = mat[0].length
-    const emptyCoords = []
+    const cellsCoords = []
     for (var row = 0; row < rows; row++) {
         for (var col = 0; col < cols; col++) {
             var currCell = mat[row][col]
-            if (checkEmpty(currCell)) {
+            if (checkFunction(currCell)) {
                 var coord = {}
                 coord[rowIdxKey] = row
                 coord[colIdxKey] = col
-                emptyCoords.push(coord)
+                cellsCoords.push(coord)
             }
         }
     }
-    return emptyCoords
+    return cellsCoords
 }
 
 function countNeighbours(mat, rowIdx, colIdx, checkNeighbour, isNeighbourFunction, ...args) {
@@ -60,28 +73,30 @@ function countNeighbours(mat, rowIdx, colIdx, checkNeighbour, isNeighbourFunctio
 }
 
 function getAllNeighbouringCells(mat, rowIdx, colIdx) {
-    const numRows = mat.length
-    const numCols = mat[0].length
-    const startRowIdx = Math.max(0, rowIdx - 1)
-    const startColIdx = Math.max(0, colIdx - 1)
-    const endRowIdx = Math.min(rowIdx + 1, numRows - 1)
-    const endColIdx = Math.min(colIdx + 1, numCols - 1)
-    const neighbours = []
-    for (var row = startRowIdx; row <= endRowIdx; row++) {
-        for (var col = startColIdx; col <= endColIdx; col++) {
-            if (row === rowIdx && col === colIdx) continue
-            var currCell = mat[row][col]
-            neighbours.push(currCell)
-        }
-    }
+    const neighbours = getCellsInRange(
+        mat,
+        rowIdx - 1,
+        colIdx - 1,
+        rowIdx + 1,
+        colIdx + 1,
+        cell => cell.row === rowIdx && cell.col === colIdx
+    )
     return neighbours
 }
 
-function getCellsInRange(mat, startRowIdx, startColIdx, endRowIdx, endColIdx) {
+function getCellsInRange(mat, startRowIdx, startColIdx, endRowIdx, endColIdx, checkExclude) {
+    if (typeof checkExclude !== 'function') checkExclude = () => false
+    const numRows = mat.length
+    const numCols = mat[0].length
+    startRowIdx = Math.max(startRowIdx, 0)
+    startColIdx = Math.max(startColIdx, 0)
+    endRowIdx = Math.min(endRowIdx, numRows - 1)
+    endColIdx = Math.min(endColIdx, numCols - 1)
     const cellsInRange = []
     for (var row = startRowIdx; row <= endRowIdx; row++) {
         for (var col = startColIdx; col <= endColIdx; col++) {
             var currCell = mat[row][col]
+            if (checkExclude(currCell)) continue
             cellsInRange.push(currCell)
         }
     }
@@ -102,6 +117,10 @@ function getRandomElements(elements, num) {
         randomElements.push(randomElement)
     } 
     return randomElements
+}
+
+function distance(x1, y1, x2, y2) {
+    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 }
 
 function getRandomInt(min, max) {

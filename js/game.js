@@ -1,8 +1,10 @@
 'use strict'
 
+const NUM_EXTERMINATOR_MINES = 3
+
 const SMILEY_TIMOUT = 1000
 const HINT_TIMOUT = 1000
-const MEGA_HINT_TIMOUT = 2000
+const MEGA_HINT_TIMOUT = 10000
 const MARK_TIMOUT = 2000
 const REVEAL_CELL_TIMEOUT = 25
 const TIMER_UPDATE_INTERVAL = 47
@@ -32,7 +34,7 @@ const IMG_FLAG = '🚩'
 const IMG_MINE = '💣'
 const IMG_EXPLOTION = '💥'
 const IMG_EMPTY = ' '
-const IMG_MARK = '✌'
+const IMG_MARK = '👌'
 const IMG_MEGA_HINT_MARK = '👍'
 const IMG_SMILEY_NORAML = '😀'
 const IMG_SMILEY_SAD = '😖'
@@ -79,7 +81,7 @@ var gMarkTimoutId
 var gGameStateStack
 var gGameStateIdx
 var gIsMegaHintMode
-var gMegaHintStartCell
+var gLastClickedCell
 var gMegaHintTimoutId
 
 function onInit(levelName) {
@@ -93,7 +95,7 @@ function onInit(levelName) {
     gIsFirstClick = true
     gIsHintMode = false
     gIsMegaHintMode = false
-    gMegaHintStartCell = null
+    gLastClickedCell = null
     clearTimeout(gMegaHintTimoutId)
     clearTimeout(gHintTimeoutId)
     clearTimeout(gSetSmileyTimoutId)
@@ -135,10 +137,7 @@ function onToggleMegaHintMode(isState) {
     if (isState === undefined) gIsMegaHintMode = ! gIsMegaHintMode
     else gIsMegaHintMode = isState
     if (gIsMegaHintMode) gIsHintMode = false
-    else {
-        if (gMegaHintStartCell) gMegaHintStartCell.isMegaHintStart = false
-        gMegaHintStartCell = null
-    }
+    else if (gLastClickedCell) gLastClickedCell.isMegaHintStart = false
     renderHelpMessage()
 }
 
@@ -162,9 +161,9 @@ function renderHelpMessage() {
 }
 
 function onMarkSafeCell() {
-    const safeCells = getEmptyCells(cell => {
-        return cell.isHidden && ! cell.isMine && ! cell.isHint && ! cell.isMarked
-    })
+    const safeCells = getMineBoardCells(
+        cell => cell.isHidden && ! cell.isMine && ! cell.isHint && ! cell.isMarked
+    )
     const randomSafeCell = getRandomElements(safeCells, 1)[0]
     if (randomSafeCell === undefined) return
     randomSafeCell.isMarked = true;
@@ -173,6 +172,14 @@ function onMarkSafeCell() {
         randomSafeCell.isMarked = false
         renderUpdateCell(randomSafeCell)
     }, MARK_TIMOUT)
+}
+
+function onExterminator() {
+    const mineCells = getMineBoardCells(cell => cell.isHidden && cell.isMine)
+    const randomMineCells = getRandomElements(mineCells, NUM_EXTERMINATOR_MINES)
+    forAllElements(randomMineCells, cell => cell.isMine = false)
+    initNumNeighbouringMines()
+    renderUpdateMineBoard()
 }
 
 function onUndo() {
@@ -218,17 +225,18 @@ function onCellLeftClick(row, col) {
     if (gIsGameOver) return
     const clickedCell = gMineBoard[row][col]
     if (gIsMegaHintMode) {
-        if (! gMegaHintStartCell) {
+        if (! gLastClickedCell || ! gLastClickedCell.isMegaHintStart) {
             clickedCell.isMegaHintStart = true
-            gMegaHintStartCell = clickedCell
             renderUpdateCell(clickedCell)
-        } else giveMegaHint(gMegaHintStartCell, clickedCell)
+        } else giveMegaHint(gLastClickedCell, clickedCell)
+        gLastClickedCell = clickedCell
         return
     }
     if (gIsHintMode) {
         giveHint(clickedCell)
         return
     }
+    gLastClickedCell = clickedCell
     if (clickedCell.isFlagged || ! clickedCell.isHidden) return
     if (gIsFirstClick) {
         clickedCell.isFirst = true
@@ -286,7 +294,11 @@ function createRandomMines(num) {
 
 function giveMegaHint(startCell, endCell) {
     onToggleMegaHintMode(false)
-    const hintCells = getCellsInRange(gMineBoard, startCell.row, startCell.col, endCell.row, endCell.col)
+    const startRow = Math.min(startCell.row, endCell.row)
+    const startCol = Math.min(startCell.col, endCell.col)
+    const endRow = Math.max(startCell.row, endCell.row)
+    const endCol = Math.max(startCell.col, endCell.col)
+    const hintCells = getCellsInRange(gMineBoard, startRow, startCol, endRow, endCol)
     forAllElements(hintCells, cell => cell.isHint = true)
     renderUpdateMineBoard()
     clearTimeout(gMegaHintTimoutId)
@@ -321,26 +333,48 @@ function countNeighbouringMines(row, col) {
     return countNeighbours(gMineBoard, row, col, cell => cell.isMine, true)
 }
 
-function revealCells(cell, depth=0) {
+function revealCells(cell, originalCell) {
+    if (! originalCell) originalCell = cell
     if (! cell.isHidden || cell.isFlagged) return
     if (0 < cell.numNeighbouringMines) {
         cell.isHidden = false
-        setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
+        setTimeout(renderUpdateCell, distanceBetweenCells(cell, originalCell) * REVEAL_CELL_TIMEOUT, cell)
         return
     }
     cell.isHidden = false
-    setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
+    setTimeout(renderUpdateCell, distanceBetweenCells(cell, originalCell) * REVEAL_CELL_TIMEOUT, cell)
     const allNeighbouringCells = getAllNeighbouringCells(gMineBoard, cell.row, cell.col)
     for (var i = 0; i < allNeighbouringCells.length; i++) {
         var currCell = allNeighbouringCells[i]
-        revealCells(currCell, depth + 1)
+        revealCells(currCell, originalCell)
     }
 }
 
-function revealAllCells() {
+function distanceBetweenCells(cell1, cell2) {
+    return distance(cell1.row, cell1.col, cell2.row, cell2.col)
+}
+
+// function revealCells(cell, depth=0) {
+//     if (! cell.isHidden || cell.isFlagged) return
+//     if (0 < cell.numNeighbouringMines) {
+//         cell.isHidden = false
+//         setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
+//         return
+//     }
+//     cell.isHidden = false
+//     setTimeout(renderUpdateCell, depth * REVEAL_CELL_TIMEOUT, cell)
+//     const allNeighbouringCells = getAllNeighbouringCells(gMineBoard, cell.row, cell.col)
+//     for (var i = 0; i < allNeighbouringCells.length; i++) {
+//         var currCell = allNeighbouringCells[i]
+//         revealCells(currCell, depth + 1)
+//     }
+// }
+
+function revealAllCells(startCell) {
+    if (! startCell) startCell = gMineBoard[0][0]
     forAllCells(gMineBoard, cell => {
         cell.isHidden = false
-        setTimeout(renderUpdateCell, (cell.row + cell.col) * REVEAL_CELL_TIMEOUT, cell)
+        setTimeout(renderUpdateCell, distanceBetweenCells(startCell, cell) * REVEAL_CELL_TIMEOUT, cell)
     })
 }
 
@@ -370,7 +404,7 @@ function gameOver(isVictory) {
         const highScores = updateHighScores(score)
         renderHighScores(highScores)
     }
-    revealAllCells()
+    revealAllCells(gLastClickedCell)
     toggleGameOverModal(true, isVictory)
 }
 
@@ -421,15 +455,19 @@ function toggleGameOverModal(isShow, isVictory) {
     }
 }
 
-function getEmptyCells(func) {
-    if (typeof func !== 'function') func = cell => ! cell.isMine && ! cell.isSafe
-    const emptyCellsCoords = getEmptyCoords(gMineBoard, func, 'row', 'col')
-    const emptyCells = []
-    for (var i = 0; i < emptyCellsCoords.length; i++) {
-        var currCoords = emptyCellsCoords[i]
-        emptyCells.push(gMineBoard[currCoords.row][currCoords.col])
-    }
-    return emptyCells
+function getEmptyCells() {
+    const emptyCellsCoords = getMineBoardCells(cell => ! cell.isMine && ! cell.isSafe)
+    return emptyCellsCoords
+}
+
+function getMineBoardCells(func) {
+    const cells = getCells(
+        gMineBoard,
+        func,
+        'row',
+        'col'
+    )
+    return cells
 }
 
 function renderMineBoard() {
@@ -481,7 +519,7 @@ function renderUpdateCell(cell) {
     else elCoverCell.classList.remove(CLS_COVER_BOARD_CELL_UNCOVERED)
     if (! cell.isHidden || cell.isHint) {
         if (cell.isFirst) elMineCell.classList.add(CLS_MINE_BOARD_CELL_FIRST)
-        if (cell.isExploded) elMineCell.innerHTML = IMG_EXPLOTION
+        if (cell.isMine && cell.isExploded) elMineCell.innerHTML = IMG_EXPLOTION
         else if (cell.isMine) elMineCell.innerHTML = IMG_MINE
         else if (0 < cell.numNeighbouringMines) elMineCell.innerHTML = cell.numNeighbouringMines
         else elMineCell.innerHTML = IMG_EMPTY

@@ -79,6 +79,7 @@ div.levels button {
 
 .high-scores-list {
     border: 1px black solid;
+    min-width: 5vw;
     max-height: 20vh;
     overflow-y: auto;
     text-align: start;
