@@ -111,6 +111,8 @@ var gMegaHintTimoutId
 var gThemeDir
 var gIsCoverBoardHidden
 var gIsPlacedMines
+var gNumFlags
+var gNumMines
 
 var gElNumRows
 var gElNumCols
@@ -143,7 +145,7 @@ function onInit(levelName) {
     gElNumCols = document.querySelector('#' + ID_NUM_COLS)
     gElNumMines = document.querySelector('#' + ID_NUM_MINES)
     gElNumLives = document.querySelector('#' + ID_NUM_LIVES)
-    renderLevelDetailed()
+    renderLevelStats()
     setCustomLevel()
     renderTheme()
     renderTimer()
@@ -151,8 +153,6 @@ function onInit(levelName) {
     onToggleModal(false, false)
     renderMineBoard()
     toggleCoverBoard(false)
-    renderLives()
-    renderHelpMessage()
     setSmiley(IMG_SMILEY_NORAML)
 }
 
@@ -191,7 +191,7 @@ function onPlaceMine(row, col) {
     renderUpdateCell(clickecCell)
 }
 
-function renderLevelDetailed() {
+function renderLevelStats() {
     gElNumRows.value = gLevel.numRows
     gElNumCols.value = gLevel.numCols
     gElNumMines.max = Math.floor(gLevel.numRows * gLevel.numCols / 2)
@@ -206,6 +206,7 @@ function setCustomLevel() {
         numMines: gElNumMines.value,
         numLives: gElNumLives.value,
     }
+    gElNumMines.max = Math.floor(gElNumRows.value * gElNumCols.value / 2)
 }
 
 function renderTimer() {
@@ -218,9 +219,29 @@ function setSmiley(img) {
     elButtonRestart.innerText = img
 }
 
-function renderLives() {
+function renderNumLives() {
     const elNumLives = document.querySelector('.num-lives')
     elNumLives.innerText = 0 < gNumLives ? IMG_LIFE.repeat(gNumLives) : IMG_NO_LIFE
+}
+
+function updateNumFlags() {
+    const flaggedCells = getMineBoardCells(cell => cell.isFlagged)
+    gNumFlags = flaggedCells.length
+}
+
+function updateNumMines() {
+    const mineCells = getMineBoardCells(cell => cell.isMine)
+    gNumMines = mineCells.length
+}
+
+function renderNumFlags() {
+    const elNumFlags = document.querySelector('.num-flags')
+    elNumFlags.innerText = gNumFlags
+}
+
+function renderNumMines() {
+    const elNumMines = document.querySelector('.num-mines')
+    elNumMines.innerText = gNumMines
 }
 
 function onToggleTheme() {
@@ -393,6 +414,7 @@ function onCellRightClick(row, col) {
     const currCell = gMineBoard[row][col]
     if (currCell.isHidden) currCell.isFlagged = ! currCell.isFlagged
     if (checkVictory()) gameOver(true)
+    pushGameState()
     renderUpdateMineBoard()
 }
 
@@ -494,7 +516,7 @@ function revealAllCells(startCell) {
 function gameOver(isVictory) {
     if (! isVictory && 0 < gNumLives) {
         gNumLives--
-        renderLives()
+        renderNumLives()
         clearTimeout(gSetSmileyTimoutId)
         setSmiley(IMG_SMILEY_SAD)
         gSetSmileyTimoutId = setTimeout(setSmiley, SMILEY_TIMOUT, IMG_SMILEY_NORAML)
@@ -626,10 +648,18 @@ function renderMineBoard() {
     elMineBoard.innerHTML = strMineBoardHtml
     const elInvisibleBoard = document.querySelector('.' + CLS_INVISIBLE_BOARD_BODY)
     elInvisibleBoard.innerHTML = strInvisibleBoardHtml
+    renderNumLives()
+    renderNumFlags()
+    renderNumMines()
+    renderHelpMessage()
 }
 
 function renderUpdateMineBoard() {
     forAllCells(gMineBoard, currCell => renderUpdateCell(currCell))
+    updateNumFlags()
+    updateNumMines()
+    renderNumFlags()
+    renderNumMines()
 }
 
 function renderUpdateCell(cell) {
